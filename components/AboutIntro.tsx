@@ -20,10 +20,16 @@ export default function AboutIntro() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           {/* Text Content - Left Side */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
+            initial={{ opacity: 0, x: -80 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ 
+              duration: 0.8, 
+              ease: [0.25, 0.1, 0.25, 1],
+              type: "spring",
+              stiffness: 100,
+              damping: 15
+            }}
             className="space-y-6"
           >
             <h2 className="text-4xl md:text-5xl font-serif text-secondary">
@@ -36,10 +42,17 @@ export default function AboutIntro() {
 
           {/* Image Container - Right Side */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            initial={{ opacity: 0, x: 80 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ 
+              duration: 0.8, 
+              delay: 0.15,
+              ease: [0.25, 0.1, 0.25, 1],
+              type: "spring",
+              stiffness: 100,
+              damping: 15
+            }}
             className="relative"
           >
             <div className="relative w-full aspect-[4/3] rounded-lg overflow-visible group p-4">

@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Cloud, Shield, Code, BarChart3 } from "lucide-react";
 import { EvervaultBackground } from "@/components/ui/evervault-background";
 
@@ -46,16 +45,11 @@ const SkillCard = ({
   Icon: typeof Cloud;
 }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6, delay: index * 0.1 }}
-      whileHover={{ scale: 1.02, y: -5 }}
+    <div
       className="relative group rounded-2xl p-8 border transition-all duration-300 overflow-hidden
         backdrop-blur-xl bg-bg-elevated/60
         border-primary/30 hover:border-primary/60
-        hover:bg-bg-elevated/40 hover:backdrop-blur-2xl
+        hover:bg-bg-elevated/40 hover:backdrop-blur-2xl hover:scale-105 hover:-translate-y-2
         shadow-lg shadow-primary/10 hover:shadow-primary/20"
     >
       {/* Glassmorphism overlay for depth */}
@@ -78,7 +72,7 @@ const SkillCard = ({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -91,11 +85,7 @@ export default function SkillsBentoGrid() {
       {/* Content wrapper - allows mouse events to pass through to background */}
       <div className="relative z-10 max-w-7xl mx-auto">
         <div className="flex justify-center mb-16">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+          <h2
             className="text-4xl md:text-5xl font-serif text-secondary text-center relative z-20 
               backdrop-blur-xl bg-bg-elevated/60 rounded-2xl py-4 px-8
               border border-primary/30 shadow-lg shadow-primary/10
@@ -103,7 +93,7 @@ export default function SkillsBentoGrid() {
               transition-all duration-300"
           >
             Skills Snapshot
-          </motion.h2>
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-20">

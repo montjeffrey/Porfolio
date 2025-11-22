@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, Target } from "lucide-react";
 import { EvervaultBackground } from "@/components/ui/evervault-background";
@@ -13,11 +12,7 @@ export default function BrandStatement() {
       
       {/* Content wrapper with glassmorphism */}
       <div className="relative z-10 max-w-4xl mx-auto text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
+        <div
           className="space-y-8 backdrop-blur-xl bg-bg-elevated/50 rounded-3xl p-8 md:p-12 border border-primary/20 shadow-lg shadow-primary/10"
         >
           <div className="flex items-center justify-center gap-3 mb-6">
@@ -34,7 +29,7 @@ export default function BrandStatement() {
           <p className="text-lg text-secondary/70 leading-relaxed">
             Today, I leverage this multifaceted experience to build secure, scalable, and business-focused technical solutions that don't just work—they deliver measurable results.
           </p>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

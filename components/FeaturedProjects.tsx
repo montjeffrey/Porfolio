@@ -26,10 +26,16 @@ export default function FeaturedProjects() {
     <section className="py-20 px-6 bg-bg-elevated">
       <div className="max-w-7xl mx-auto">
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          viewport={{ once: false, amount: 0.3 }}
+          transition={{ 
+            duration: 1.2,
+            ease: [0.34, 1.56, 0.64, 1],
+            type: "spring",
+            stiffness: 80,
+            damping: 25
+          }}
           className="text-4xl md:text-5xl font-serif text-secondary text-center mb-16"
         >
           Featured Projects
@@ -39,10 +45,17 @@ export default function FeaturedProjects() {
           {featuredProjects.map((project, index) => (
             <motion.div
               key={project.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: index * 0.2 }}
+              initial={{ opacity: 0, x: index % 2 === 0 ? -60 : 60 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, amount: 0.3 }}
+              transition={{ 
+                duration: 0.5,
+                delay: index * 0.08,
+                ease: [0.25, 0.1, 0.25, 1],
+                type: "spring",
+                stiffness: 180,
+                damping: 18
+              }}
               whileHover={{ scale: 1.02, y: -5 }}
               className="relative group rounded-2xl p-8 border transition-all duration-300 overflow-hidden
                 backdrop-blur-xl bg-bg-elevated/60
@@ -87,6 +100,30 @@ export default function FeaturedProjects() {
             </motion.div>
           ))}
         </div>
+
+        {/* View All Projects Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.3 }}
+          transition={{ 
+            duration: 0.5,
+            delay: 0.2,
+            ease: [0.25, 0.1, 0.25, 1],
+            type: "spring",
+            stiffness: 180,
+            damping: 18
+          }}
+          className="flex justify-center mt-12"
+        >
+          <Link
+            href="/projects"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-transparent border-2 border-primary/30 hover:border-primary text-secondary rounded-lg font-semibold text-lg transition-all duration-300 hover:scale-105 hover:bg-primary/10 backdrop-blur-sm group/button"
+          >
+            <span>View All Projects</span>
+            <ArrowRight className="w-5 h-5 group-hover/button:translate-x-1 transition-transform" />
+          </Link>
+        </motion.div>
       </div>
     </section>
   );

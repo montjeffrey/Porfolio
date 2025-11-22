@@ -1,6 +1,6 @@
 "use client";
 
-import { useMotionValue } from "framer-motion";
+import { useMotionValue, useSpring } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { useMotionTemplate, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,12 @@ export function EvervaultBackground({
 }: EvervaultBackgroundProps) {
   let mouseX = useMotionValue(0);
   let mouseY = useMotionValue(0);
+  
+  // Use spring for smooth, natural movement
+  const springConfig = { damping: 25, stiffness: 200 };
+  const smoothMouseX = useSpring(mouseX, springConfig);
+  const smoothMouseY = useSpring(mouseY, springConfig);
+  
   const [randomString, setRandomString] = useState("");
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -51,6 +57,7 @@ export function EvervaultBackground({
     let animationFrame: number;
     let lastUpdateTime = 0;
     const updateInterval = 50; // Update text every 50ms max
+    let rafId: number;
 
     const handleMouseMove = (event: MouseEvent) => {
       if (containerRef.current) {
@@ -58,11 +65,25 @@ export function EvervaultBackground({
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
 
-        // Only update if mouse is within the container bounds
-        if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+        // Check if mouse is within or near container bounds (with buffer for smooth transitions)
+        const buffer = 100; // Buffer zone for smooth transitions
+        const isNearContainer = 
+          x >= -buffer && x <= rect.width + buffer && 
+          y >= -buffer && y <= rect.height + buffer;
+
+        if (isNearContainer) {
+          // Always update position for smooth tracking, even slightly outside bounds
+          const clampedX = Math.max(0, Math.min(rect.width, x));
+          const clampedY = Math.max(0, Math.min(rect.height, y));
+          
           setIsHovered(true);
-          mouseX.set(x);
-          mouseY.set(y);
+          
+          // Use requestAnimationFrame for smooth updates
+          if (rafId) cancelAnimationFrame(rafId);
+          rafId = requestAnimationFrame(() => {
+            mouseX.set(clampedX);
+            mouseY.set(clampedY);
+          });
 
           // Regenerate text periodically for dynamic feel (throttled)
           const now = Date.now();
@@ -90,7 +111,7 @@ export function EvervaultBackground({
     };
 
     // Use document-level listener to catch all mouse movements
-    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mousemove", handleMouseMove, { passive: true });
     if (containerRef.current) {
       containerRef.current.addEventListener("mouseleave", handleMouseLeave);
     }
@@ -102,6 +123,9 @@ export function EvervaultBackground({
       }
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
+      }
+      if (rafId) {
+        cancelAnimationFrame(rafId);
       }
     };
   }, [mouseX, mouseY]);
@@ -115,7 +139,7 @@ export function EvervaultBackground({
       )}
       style={{ margin: 0, padding: 0 }}
     >
-      <EvervaultPattern mouseX={mouseX} mouseY={mouseY} randomString={randomString} radius={radius} isHovered={isHovered} />
+      <EvervaultPattern mouseX={smoothMouseX} mouseY={smoothMouseY} randomString={randomString} radius={radius} isHovered={isHovered} />
     </div>
   );
 }
