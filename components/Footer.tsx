@@ -2,13 +2,31 @@
 
 import Link from "next/link";
 import { Linkedin, Mail, Github } from "lucide-react";
+import { EvervaultBackground } from "@/components/ui/evervault-background";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-bg-elevated border-t border-primary/20 mt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <>
+      {/* Evervault effect section - the space above footer */}
+      <section 
+        className="relative overflow-hidden h-20 bg-bg-dark w-full" 
+        style={{ 
+          margin: 0, 
+          padding: 0, 
+          marginTop: 0, 
+          paddingTop: 0,
+          marginBottom: 0,
+          paddingBottom: 0,
+          display: 'block'
+        }}
+      >
+        <EvervaultBackground className="rounded-none" radius={450} />
+      </section>
+      
+      <footer className="bg-bg-elevated border-t border-primary/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand Section */}
           <div>
@@ -88,6 +106,7 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+    </>
   );
 }
 
