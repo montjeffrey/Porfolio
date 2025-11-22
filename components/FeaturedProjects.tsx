@@ -44,9 +44,16 @@ export default function FeaturedProjects() {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: index * 0.2 }}
               whileHover={{ scale: 1.02, y: -5 }}
-              className="relative group bg-bg-dark rounded-2xl p-8 border border-primary/20 hover:border-primary/50 transition-all duration-300 overflow-hidden"
+              className="relative group rounded-2xl p-8 border transition-all duration-300 overflow-hidden
+                backdrop-blur-xl bg-bg-elevated/60
+                border-primary/30 hover:border-primary/60
+                hover:bg-bg-elevated/40 hover:backdrop-blur-2xl
+                shadow-lg shadow-primary/10 hover:shadow-primary/20"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Glassmorphism overlay for depth */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
+              
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-4">

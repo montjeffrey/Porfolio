@@ -3,17 +3,22 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, Target } from "lucide-react";
+import { EvervaultBackground } from "@/components/ui/evervault-background";
 
 export default function BrandStatement() {
   return (
-    <section className="py-20 px-6 bg-bg-dark">
-      <div className="max-w-4xl mx-auto text-center">
+    <section className="relative py-20 px-6 overflow-hidden min-h-[600px]">
+      {/* Evervault background effect - covers entire section */}
+      <EvervaultBackground className="rounded-none" radius={450} />
+      
+      {/* Content wrapper with glassmorphism */}
+      <div className="relative z-10 max-w-4xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="space-y-8"
+          className="space-y-8 backdrop-blur-xl bg-bg-elevated/50 rounded-3xl p-8 md:p-12 border border-primary/20 shadow-lg shadow-primary/10"
         >
           <div className="flex items-center justify-center gap-3 mb-6">
             <Target className="w-8 h-8 text-primary" />

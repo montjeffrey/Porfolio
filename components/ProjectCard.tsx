@@ -37,10 +37,17 @@ export default function ProjectCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       whileHover={{ scale: 1.02, y: -5 }}
-      className="relative group bg-bg-elevated rounded-2xl p-8 border border-primary/20 hover:border-primary/50 transition-all duration-300 overflow-hidden"
+      className="relative group rounded-2xl p-8 border transition-all duration-300 overflow-hidden
+        backdrop-blur-xl bg-bg-elevated/60
+        border-primary/30 hover:border-primary/60
+        hover:bg-bg-elevated/40 hover:backdrop-blur-2xl
+        shadow-lg shadow-primary/10 hover:shadow-primary/20"
     >
+      {/* Glassmorphism overlay for depth */}
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
+      
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
       <div className="relative z-10 space-y-6">
         {/* Header */}
