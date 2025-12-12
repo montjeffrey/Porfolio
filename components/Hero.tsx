@@ -9,6 +9,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { ResumeModal } from '@/components/ui/resume-modal';
 
 const BeamBackground: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -186,6 +187,7 @@ export default function Hero() {
   const [textIndex, setTextIndex] = useState(0);
   const [displayText, setDisplayText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
 
   const skills = ['Python', 'AWS', 'Security', 'Operations'];
 
@@ -252,15 +254,21 @@ export default function Hero() {
             >
               View My Projects
             </Link>
-            <Link
-              href="/resume"
+            <button
+              onClick={() => setIsResumeModalOpen(true)}
               className="px-8 py-4 bg-transparent border-2 border-primary/30 hover:border-primary text-secondary rounded-lg font-semibold text-lg transition-all duration-300 hover:scale-105 backdrop-blur-sm"
+              aria-label="Download resume - opens resume selection modal"
             >
               Download Resume
-            </Link>
+            </button>
           </motion.div>
         </div>
       </div>
+      
+      <ResumeModal 
+        isOpen={isResumeModalOpen} 
+        onClose={() => setIsResumeModalOpen(false)} 
+      />
     </div>
   );
 }

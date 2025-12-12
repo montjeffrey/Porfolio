@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, Briefcase, RefreshCw, Rocket, Award, Target, Code2, Cloud, Shield } from "lucide-react";
+import { BookOpen, Briefcase, RefreshCw, Rocket, Award, Target, Code2 } from "lucide-react";
 
 const timeline = [
   {

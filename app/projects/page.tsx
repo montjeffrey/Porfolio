@@ -111,6 +111,8 @@ export default function ProjectsPage() {
                   ? "bg-primary text-bg-dark hover:bg-primary/90"
                   : "bg-bg-elevated text-secondary/80 hover:bg-bg-elevated/80 border border-primary/20 hover:border-primary/40"
               }`}
+              aria-label={`Filter projects by ${category}`}
+              aria-pressed={activeFilter === category}
             >
               {category}
             </button>

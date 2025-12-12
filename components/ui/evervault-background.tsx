@@ -38,12 +38,12 @@ export function EvervaultBackground({
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-  // Generate enough text to cover the entire section (more characters)
+    // Generate enough text to cover the entire section (more characters)
   useEffect(() => {
     // Generate significantly more text for better coverage
     // Use more characters per line and more lines to cover full width and height
     // Increased significantly to ensure full coverage with no gaps
-    let charsPerLine = 400; // Increased for wider screens - more chars per line
+    let charsPerLine = 800; // Further increased for ultra-wide screens
     let numLines = 500; // Increased for taller sections - more lines
     let fullString = "";
     for (let i = 0; i < numLines; i++) {
@@ -91,7 +91,7 @@ export function EvervaultBackground({
             lastUpdateTime = now;
             animationFrame = requestAnimationFrame(() => {
               // Regenerate with line breaks for better coverage
-              let charsPerLine = 400;
+              let charsPerLine = 800;
               let numLines = 500;
               let fullString = "";
               for (let i = 0; i < numLines; i++) {
@@ -189,21 +189,21 @@ function EvervaultPattern({
         style={style}
       >
         <p 
-          className="absolute inset-0 text-[8px] leading-[1.1] whitespace-pre-wrap text-secondary/80 font-mono font-bold overflow-hidden"
+          className="absolute inset-y-0 text-[11px] md:text-[12px] lg:text-[13px] leading-none whitespace-pre-wrap text-secondary/80 font-mono font-bold overflow-hidden"
           style={{ 
             padding: 0,
             margin: 0,
             top: 0,
-            left: 0,
-            right: 0,
             bottom: 0,
-            wordBreak: 'break-all',
-            whiteSpace: 'pre-wrap',
-            width: '100%',
-            height: '100%',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            boxSizing: 'border-box'
+            left: "-15%",
+            right: "-15%",
+            width: "130%",
+            height: "100%",
+            maxWidth: "130%",
+            maxHeight: "100%",
+            boxSizing: "border-box",
+            lineHeight: 1,
+            letterSpacing: "-0.08em",
           }}
         >
           {randomString}

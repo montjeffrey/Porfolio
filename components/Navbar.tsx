@@ -37,7 +37,7 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <Link href="/" className="text-xl font-serif text-primary font-bold">
+          <Link href="/" className="text-xl font-serif text-primary font-bold" aria-label="Jeffrey Montoya - Home">
             Jeffrey Montoya
           </Link>
 
@@ -48,6 +48,7 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 className="text-secondary hover:text-primary transition-colors duration-200 font-medium"
+                aria-label={`Navigate to ${link.label} page`}
               >
                 {link.label}
               </Link>
@@ -81,6 +82,7 @@ export default function Navbar() {
                   href={link.href}
                   onClick={() => setIsOpen(false)}
                   className="block text-secondary hover:text-primary transition-colors duration-200 font-medium"
+                  aria-label={`Navigate to ${link.label} page`}
                 >
                   {link.label}
                 </Link>

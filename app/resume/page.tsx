@@ -55,14 +55,20 @@ export default function ResumeHubPage() {
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
 
   const handleDownload = (resumeId: string, action: "view" | "download") => {
-    // Placeholder - in production, these would link to actual PDF files
-    console.log(`${action} ${resumeId} resume`);
-    // Example implementation:
-    // if (action === "download") {
-    //   window.location.href = `/resumes/${resumeId}.pdf`;
-    // } else {
-    //   window.open(`/resumes/${resumeId}.pdf`, "_blank");
-    // }
+    const pdfPath = `/resumes/${resumeId}.pdf`;
+    
+    if (action === "download") {
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement("a");
+      link.href = pdfPath;
+      link.download = `${resumeId}-resume.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // Open PDF in new tab for viewing
+      window.open(pdfPath, "_blank", "noopener,noreferrer");
+    }
   };
 
   return (

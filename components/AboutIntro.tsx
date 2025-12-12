@@ -84,15 +84,18 @@ export default function AboutIntro() {
                 {/* Border with glow effect on hover */}
                 <div className="absolute inset-0 rounded-lg border-2 border-primary/20 group-hover:border-primary/60 transition-all duration-300 z-20 pointer-events-none" />
                 
-                {/* Actual Image - positioned to show top half */}
-                <Image
-                  src="/Photos/Portfolio-picture.jpg"
-                  alt="Jeffrey Montoya - Solutions Engineer"
-                  fill
-                  className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                  priority
-                  quality={90}
-                />
+                        {/* Actual Image - positioned to show top half */}
+                        <Image
+                          src="/Photos/Portfolio-picture.jpg"
+                          alt="Jeffrey Montoya - Solutions Engineer"
+                          fill
+                          className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                          priority
+                          quality={90}
+                          sizes="(max-width: 768px) 100vw, 50vw"
+                          placeholder="blur"
+                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
+                        />
               </motion.div>
             </div>
           </motion.div>

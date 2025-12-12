@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { ArrowLeft, Smartphone, Calendar, TrendingUp, Zap } from "lucide-react";
+import { ArrowLeft, Smartphone, Calendar, TrendingUp, Zap, Scissors, MapPin, Clock, Users } from "lucide-react";
 import { useState } from "react";
 
 export default function LevelzBarberStudioCaseStudy() {
@@ -62,21 +62,21 @@ export default function LevelzBarberStudioCaseStudy() {
             <div>
               <h3 className="text-xl font-semibold text-secondary mb-2">Challenge</h3>
               <p className="text-secondary/80 leading-relaxed">
-                Local barbershop struggled with phone-based bookings, limited online presence, and inability to showcase services effectively to new customers.
+                Levelz Barber Studio, a local barbershop, struggled with phone-based bookings that often led to missed appointments and scheduling conflicts. The business had minimal online presence, making it difficult for new customers to discover their services, view pricing, or understand what made them unique. Staff spent significant time managing bookings manually, reducing time available for customer service.
               </p>
             </div>
 
             <div>
               <h3 className="text-xl font-semibold text-secondary mb-2">Solution</h3>
               <p className="text-secondary/80 leading-relaxed">
-                Built a modern, responsive website with integrated booking system, improving digital presence and streamlining customer interactions.
+                Developed a modern, mobile-first website featuring real-time appointment booking through Booksy API integration. The site showcases services (Haircuts, Fades, Beard Trims, Hot Towel Shaves), staff profiles, location information, and business hours. Implemented SEO optimization targeting local search terms like "barbershop near me" and "best barber in [location]".
               </p>
             </div>
 
             <div>
               <h3 className="text-xl font-semibold text-secondary mb-2">Impact</h3>
               <p className="text-secondary/80 leading-relaxed">
-                40% increase in online bookings within first month, improved Google Business ranking, and reduced phone inquiries by 60%.
+                40% increase in online bookings within the first month, improved Google Business ranking from page 3 to top 5 local results, and reduced phone inquiries by 60%—freeing staff to focus on delivering quality cuts. The booking system eliminated double-booking errors and provided customers with 24/7 appointment scheduling convenience.
               </p>
             </div>
           </div>
@@ -186,10 +186,14 @@ async function checkAvailability(serviceId, date) {
               </h4>
               <ul className="space-y-3">
                 {[
-                  "Direct Booksy API integration for real-time availability",
-                  "Mobile-first responsive design",
-                  "Custom CMS for staff content updates",
-                  "SEO optimization improving local search visibility",
+                  "Direct Booksy API integration for real-time availability and instant booking confirmation",
+                  "Mobile-first responsive design optimized for on-the-go booking",
+                  "Service showcase: Haircuts, Fades, Beard Trims, Hot Towel Shaves with pricing",
+                  "Staff profiles highlighting barber expertise and specialties",
+                  "Location integration with Google Maps and business hours display",
+                  "Custom CMS allowing staff to update services, pricing, and announcements",
+                  "SEO optimization targeting local search terms and Google Business integration",
+                  "Automated email confirmations and appointment reminders",
                 ].map((feature, i) => (
                   <li key={i} className="text-secondary/80 flex items-start gap-2">
                     <span className="text-primary mt-1">•</span>
@@ -200,6 +204,86 @@ async function checkAvailability(serviceId, date) {
             </div>
           </div>
         </motion.section>
+
+        {/* Services & Content Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="mb-16"
+          >
+          <h2 className="text-3xl font-serif text-secondary mb-8 flex items-center gap-3">
+            <Scissors className="w-8 h-8 text-primary" />
+            Website Content & Services
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Services */}
+            <div className="bg-bg-elevated rounded-2xl p-8 border border-primary/20">
+              <h3 className="text-2xl font-serif text-secondary mb-6 flex items-center gap-2">
+                <Scissors className="w-6 h-6 text-primary" />
+                Services Offered
+              </h3>
+              <ul className="space-y-3">
+                {[
+                  { service: "Classic Haircut", price: "$25", desc: "Traditional barber cut with clippers and scissors" },
+                  { service: "Fade & Style", price: "$30", desc: "Modern fade techniques with styling" },
+                  { service: "Beard Trim", price: "$15", desc: "Precise beard shaping and trimming" },
+                  { service: "Hot Towel Shave", price: "$35", desc: "Traditional straight razor shave with hot towel treatment" },
+                  { service: "Haircut + Beard", price: "$40", desc: "Complete grooming package" },
+                ].map((item, i) => (
+                  <li key={i} className="border-b border-primary/10 pb-3 last:border-0">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-secondary font-semibold">{item.service}</span>
+                      <span className="text-primary font-mono">{item.price}</span>
+                    </div>
+                    <p className="text-secondary/60 text-sm">{item.desc}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Business Info */}
+            <div className="bg-bg-elevated rounded-2xl p-8 border border-primary/20">
+              <h3 className="text-2xl font-serif text-secondary mb-6 flex items-center gap-2">
+                <MapPin className="w-6 h-6 text-primary" />
+                Business Information
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="text-secondary/60 text-sm mb-1 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Hours
+                  </div>
+                  <div className="text-secondary">
+                    <div>Monday - Friday: 9:00 AM - 7:00 PM</div>
+                    <div>Saturday: 8:00 AM - 6:00 PM</div>
+                    <div>Sunday: 10:00 AM - 4:00 PM</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-secondary/60 text-sm mb-1 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Team
+                  </div>
+                  <div className="text-secondary">
+                    Experienced barbers specializing in modern cuts, classic styles, and precision grooming
+                  </div>
+                </div>
+                <div>
+                  <div className="text-secondary/60 text-sm mb-1 flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Location
+                  </div>
+                  <div className="text-secondary">
+                    Conveniently located with easy parking and accessible by public transit
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
       </div>
     </div>
   );

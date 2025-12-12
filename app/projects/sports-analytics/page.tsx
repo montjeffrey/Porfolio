@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowLeft, Code2, Database, Zap } from "lucide-react";
+import { ArchitectureDiagram } from "@/components/ui/architecture-diagram";
 
 export default function SportsAnalyticsCaseStudy() {
   return (
@@ -84,12 +85,8 @@ export default function SportsAnalyticsCaseStudy() {
             Technical Architecture
           </h2>
 
-          <div className="bg-bg-elevated rounded-2xl p-8 border border-primary/20 font-mono text-sm text-secondary/80 overflow-x-auto">
-            <pre className="whitespace-pre-wrap">
-{`Data Sources (APIs) → Python Cleaning Pipeline → Random Forest Model → Prediction Engine → React UI
-     ↓                        ↓                         ↓                    ↓              ↓
-ESPN/SportsData → Data Validation → Feature Engineering → Accuracy Tracking → User Dashboard`}
-            </pre>
+          <div className="bg-bg-elevated rounded-2xl p-8 border border-primary/20">
+            <ArchitectureDiagram />
           </div>
         </motion.section>
 

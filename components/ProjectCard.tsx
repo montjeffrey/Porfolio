@@ -115,9 +115,10 @@ export default function ProjectCard({
         <Link
           href={href}
           className="inline-flex items-center gap-2 text-primary hover:text-primary/80 font-semibold group/link transition-all duration-300"
+          aria-label={`View case study for ${title}`}
         >
           View Case Study
-          <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
+          <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" aria-hidden="true" />
         </Link>
       </div>
     </motion.div>
