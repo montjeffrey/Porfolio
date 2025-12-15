@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useState, FormEvent } from "react";
 import { Mail, Phone, Linkedin, MapPin, Send, CheckCircle2, AlertCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+
 
 const projectTypes = [
   "Web Development",
@@ -32,37 +32,21 @@ export default function ContactPage() {
     setIsSubmitting(true);
     setSubmitStatus(null);
 
-    try {
-      const { error } = await supabase.from("messages").insert([
-        {
-          name: formData.name,
-          email: formData.email,
-          company: formData.company,
-          project_type: formData.projectType,
-          message: formData.message,
-          preferred_contact: formData.preferredContact,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (error) throw error;
-
-      setSubmitStatus("success");
-      setFormData({
-        name: "",
-        email: "",
-        company: "",
-        projectType: "",
-        message: "",
-        preferredContact: "Email",
-      });
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      setSubmitStatus("error");
-    } finally {
-      setIsSubmitting(false);
-      setTimeout(() => setSubmitStatus(null), 5000);
-    }
+    // For now, we are just simulating success since the backend is not connected.
+    setSubmitStatus("success");
+    setFormData({
+      name: "",
+      email: "",
+      company: "",
+      projectType: "",
+      message: "",
+      preferredContact: "Email",
+    });
+    setIsSubmitting(false);
+    setTimeout(() => setSubmitStatus(null), 5000);
   };
 
   const handleChange = (
@@ -208,7 +192,7 @@ export default function ContactPage() {
                   className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg flex items-center gap-3 text-green-400"
                 >
                   <CheckCircle2 className="w-5 h-5" />
-                  <span>Message sent successfully! I'll get back to you soon.</span>
+                  <span>Please mail any inquires to Montjeffrey@gmail.com</span>
                 </motion.div>
               )}
 

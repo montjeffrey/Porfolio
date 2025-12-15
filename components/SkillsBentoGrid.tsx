@@ -35,13 +35,13 @@ const skills = [
 ];
 
 // Skill Card component - glassmorphism effect that reveals background effect on hover
-const SkillCard = ({ 
-  skill, 
-  index, 
-  Icon 
-}: { 
-  skill: typeof skills[0]; 
-  index: number; 
+const SkillCard = ({
+  skill,
+  index,
+  Icon
+}: {
+  skill: typeof skills[0];
+  index: number;
   Icon: typeof Cloud;
 }) => {
   return (
@@ -54,7 +54,7 @@ const SkillCard = ({
     >
       {/* Glassmorphism overlay for depth */}
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
-      
+
       {/* Content layer */}
       <div className="relative z-10">
         <div className="flex items-start gap-4 mb-4">
@@ -81,7 +81,10 @@ export default function SkillsBentoGrid() {
     <section className="relative py-20 px-6 bg-bg-dark overflow-hidden min-h-[800px] group/section">
       {/* Evervault background effect - covers entire section */}
       <EvervaultBackground className="rounded-none" radius={450} />
-      
+
+      {/* Top Gradient Blend */}
+      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-bg-dark to-transparent z-10 pointer-events-none" />
+
       {/* Content wrapper - allows mouse events to pass through to background */}
       <div className="relative z-10 max-w-7xl mx-auto">
         <div className="flex justify-center mb-16">

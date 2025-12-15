@@ -28,17 +28,17 @@ export function EvervaultBackground({
 }: EvervaultBackgroundProps) {
   let mouseX = useMotionValue(0);
   let mouseY = useMotionValue(0);
-  
+
   // Use spring for smooth, natural movement
   const springConfig = { damping: 25, stiffness: 200 };
   const smoothMouseX = useSpring(mouseX, springConfig);
   const smoothMouseY = useSpring(mouseY, springConfig);
-  
+
   const [randomString, setRandomString] = useState("");
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-    // Generate enough text to cover the entire section (more characters)
+  // Generate enough text to cover the entire section (more characters)
   useEffect(() => {
     // Generate significantly more text for better coverage
     // Use more characters per line and more lines to cover full width and height
@@ -67,17 +67,17 @@ export function EvervaultBackground({
 
         // Check if mouse is within or near container bounds (with buffer for smooth transitions)
         const buffer = 100; // Buffer zone for smooth transitions
-        const isNearContainer = 
-          x >= -buffer && x <= rect.width + buffer && 
+        const isNearContainer =
+          x >= -buffer && x <= rect.width + buffer &&
           y >= -buffer && y <= rect.height + buffer;
 
         if (isNearContainer) {
           // Always update position for smooth tracking, even slightly outside bounds
           const clampedX = Math.max(0, Math.min(rect.width, x));
           const clampedY = Math.max(0, Math.min(rect.height, y));
-          
+
           setIsHovered(true);
-          
+
           // Use requestAnimationFrame for smooth updates
           if (rafId) cancelAnimationFrame(rafId);
           rafId = requestAnimationFrame(() => {
@@ -164,12 +164,11 @@ function EvervaultPattern({
     <div className="pointer-events-none m-0 p-0" style={{ margin: 0, padding: 0 }}>
       {/* Base gradient fade */}
       <div className="absolute inset-0 [mask-image:linear-gradient(white,transparent)] opacity-30 transition-opacity duration-500" />
-      
+
       {/* Vibrant gradient layer - mixing theme colors for an "alive" feel */}
       <motion.div
-        className={`absolute inset-0 backdrop-blur-xl transition-opacity duration-300 ${
-          isHovered ? "opacity-100" : "opacity-0"
-        }`}
+        className={`absolute inset-0 backdrop-blur-xl transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
+          }`}
         style={{
           ...style,
           background: `radial-gradient(circle at center, 
@@ -183,14 +182,13 @@ function EvervaultPattern({
 
       {/* Animated text layer - using secondary color, always visible but masked */}
       <motion.div
-        className={`absolute inset-0 mix-blend-overlay transition-opacity duration-300 ${
-          isHovered ? "opacity-100" : "opacity-0"
-        }`}
+        className={`absolute inset-0 mix-blend-overlay transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
+          }`}
         style={style}
       >
-        <p 
+        <p
           className="absolute inset-y-0 text-[11px] md:text-[12px] lg:text-[13px] leading-none whitespace-pre-wrap text-secondary/80 font-mono font-bold overflow-hidden"
-          style={{ 
+          style={{
             padding: 0,
             margin: 0,
             top: 0,
