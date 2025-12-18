@@ -46,37 +46,36 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
 
     const camera = new THREE.OrthographicCamera();
 
-    // Setup Post-Processing only for Desktop
+    // Setup Post-Processing for both Desktop and Mobile
     let composer: EffectComposer | null = null;
     let rgbShift: ShaderPass | null = null;
     let bloom: UnrealBloomPass | null = null;
 
-    if (!isMobile) {
-      const renderPass = new RenderPass(scene, camera);
-      bloom = new UnrealBloomPass(
-        new THREE.Vector2(container.clientWidth, container.clientHeight),
-        0.5,
-        0.9,
-        0.2
-      );
-      rgbShift = new ShaderPass(RGBShiftShader);
-      rgbShift.uniforms['amount'].value = 0.002;
-      rgbShift.uniforms['angle'].value = Math.PI / 4;
+    // We now enable post-processing for everyone, but we can tune it if needed
+    const renderPass = new RenderPass(scene, camera);
+    bloom = new UnrealBloomPass(
+      new THREE.Vector2(container.clientWidth, container.clientHeight),
+      0.5,
+      0.9,
+      0.2
+    );
+    rgbShift = new ShaderPass(RGBShiftShader);
+    rgbShift.uniforms['amount'].value = 0.002;
+    rgbShift.uniforms['angle'].value = Math.PI / 4;
 
-      composer = new EffectComposer(renderer);
-      composer.addPass(renderPass);
-      composer.addPass(bloom);
-      composer.addPass(rgbShift);
-    }
+    composer = new EffectComposer(renderer);
+    composer.addPass(renderPass);
+    composer.addPass(bloom);
+    composer.addPass(rgbShift);
 
     // Adjust grid density based on device
     const GRID = {
-      cols: isMobile ? 50 : 100, // Reduced density for mobile
-      rows: isMobile ? 50 : 100, // Reduced density for mobile
+      cols: isMobile ? 70 : 100, // Increased density for mobile (was 50)
+      rows: isMobile ? 70 : 100, // Increased density for mobile (was 50)
       jitter: 0.25,
       hexOffset: 0.5,
-      dotRadius: isMobile ? 0.04 : 0.025, // Slightly larger dots on mobile to compensate for lower density
-      spacing: isMobile ? 1.1 : 0.55 // Increased spacing for mobile
+      dotRadius: isMobile ? 0.03 : 0.025, // Slightly larger dots on mobile
+      spacing: isMobile ? 0.8 : 0.55 // Adjusted spacing for mobile density
     };
 
     const total = GRID.cols * GRID.rows;
@@ -85,7 +84,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
     // Use additive blending on mobile to simulate glow without heavy post-processing
     const material = new THREE.MeshBasicMaterial({
       color: 0xe77d22,
-      blending: isMobile ? THREE.AdditiveBlending : THREE.NoBlending,
+      blending: THREE.AdditiveBlending, // Always use additive for the beam look
       opacity: isMobile ? 0.8 : 1.0,
       transparent: isMobile
     });
@@ -141,7 +140,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
 
       const phase = (Math.sin(2 * Math.PI * t * freq) + 1) * 0.5;
 
-      if (!isMobile && rgbShift) {
+      if (rgbShift) { // Always update RGB shift if it exists
         rgbShift.uniforms['amount'].value = 0.0015 + phase * 0.003;
       }
 
@@ -161,10 +160,10 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
       }
       dots.instanceMatrix.needsUpdate = true;
 
-      if (isMobile) {
-        renderer.render(scene, camera);
-      } else if (composer) {
+      if (composer) {
         composer.render();
+      } else {
+        renderer.render(scene, camera);
       }
     }
 
