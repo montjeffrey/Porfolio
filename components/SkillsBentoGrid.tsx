@@ -84,6 +84,7 @@ export default function SkillsBentoGrid() {
 
       {/* Top Gradient Blend */}
       <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-bg-dark to-transparent z-10 pointer-events-none" />
+
       {/* Content wrapper - allows mouse events to pass through to background */}
       <div className="relative z-10 max-w-7xl mx-auto">
         <div className="flex justify-center mb-16">
@@ -110,4 +111,3 @@ export default function SkillsBentoGrid() {
     </section>
   );
 }
-
