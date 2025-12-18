@@ -10,8 +10,13 @@ import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ResumeModal } from '@/components/ui/resume-modal';
+import { useIsMobile } from '@/hooks/use-mobile';
 
-const BeamBackground: React.FC = () => {
+interface BeamBackgroundProps {
+  isMobile: boolean;
+}
+
+const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,9 +32,10 @@ const BeamBackground: React.FC = () => {
     const renderer = new THREE.WebGLRenderer({
       antialias: false,
       alpha: false,
-      powerPreference: 'high-performance'
+      powerPreference: 'high-performance',
+      precision: isMobile ? 'mediump' : 'highp', // Lower precision for mobile
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setClearColor(0x0d0d0d, 1);
     container.appendChild(renderer.domElement);
@@ -39,36 +45,50 @@ const BeamBackground: React.FC = () => {
 
     const camera = new THREE.OrthographicCamera();
 
-    let composer: EffectComposer, rgbShift: ShaderPass, bloom: UnrealBloomPass;
+    // Setup Post-Processing only for Desktop
+    let composer: EffectComposer | null = null;
+    let rgbShift: ShaderPass | null = null;
+    let bloom: UnrealBloomPass | null = null;
 
-    const renderPass = new RenderPass(scene, camera);
-    bloom = new UnrealBloomPass(
-      new THREE.Vector2(container.clientWidth, container.clientHeight),
-      0.5,
-      0.9,
-      0.2
-    );
-    rgbShift = new ShaderPass(RGBShiftShader);
-    rgbShift.uniforms['amount'].value = 0.002;
-    rgbShift.uniforms['angle'].value = Math.PI / 4;
+    if (!isMobile) {
+      const renderPass = new RenderPass(scene, camera);
+      bloom = new UnrealBloomPass(
+        new THREE.Vector2(container.clientWidth, container.clientHeight),
+        0.5,
+        0.9,
+        0.2
+      );
+      rgbShift = new ShaderPass(RGBShiftShader);
+      rgbShift.uniforms['amount'].value = 0.002;
+      rgbShift.uniforms['angle'].value = Math.PI / 4;
 
-    composer = new EffectComposer(renderer);
-    composer.addPass(renderPass);
-    composer.addPass(bloom);
-    composer.addPass(rgbShift);
+      composer = new EffectComposer(renderer);
+      composer.addPass(renderPass);
+      composer.addPass(bloom);
+      composer.addPass(rgbShift);
+    }
 
+    // Adjust grid density based on device
     const GRID = {
-      cols: 100,
-      rows: 100,
+      cols: isMobile ? 50 : 100, // Reduced density for mobile
+      rows: isMobile ? 50 : 100, // Reduced density for mobile
       jitter: 0.25,
       hexOffset: 0.5,
-      dotRadius: 0.025,
-      spacing: 0.55
+      dotRadius: isMobile ? 0.04 : 0.025, // Slightly larger dots on mobile to compensate for lower density
+      spacing: isMobile ? 1.1 : 0.55 // Increased spacing for mobile
     };
 
     const total = GRID.cols * GRID.rows;
-    const geometry = new THREE.CircleGeometry(GRID.dotRadius, 8);
-    const material = new THREE.MeshBasicMaterial({ color: 0xe77d22 });
+    const geometry = new THREE.CircleGeometry(GRID.dotRadius, isMobile ? 4 : 8); // Lower geometry detail on mobile
+
+    // Use additive blending on mobile to simulate glow without heavy post-processing
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xe77d22,
+      blending: isMobile ? THREE.AdditiveBlending : THREE.NoBlending,
+      opacity: isMobile ? 0.8 : 1.0,
+      transparent: isMobile
+    });
+
     const dots = new THREE.InstancedMesh(geometry, material, total);
     dots.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(dots);
@@ -110,15 +130,23 @@ const BeamBackground: React.FC = () => {
 
     function animate() {
       animationFrameId = requestAnimationFrame(animate);
+
+      // Limit FPS on mobile if needed, but the scene is now light enough to run full speed
       const t = clock.getElapsedTime();
       const speed = 0.4;
       const amp = 0.8;
       const freq = 0.25;
       const falloff = 0.04;
+
       const phase = (Math.sin(2 * Math.PI * t * freq) + 1) * 0.5;
-      rgbShift.uniforms['amount'].value = 0.0015 + phase * 0.003;
+
+      if (!isMobile && rgbShift) {
+        rgbShift.uniforms['amount'].value = 0.0015 + phase * 0.003;
+      }
+
       const mat = new THREE.Matrix4();
       const pos = new THREE.Vector3();
+
       for (let i = 0; i < total; i++) {
         const x0 = basePos[i * 2 + 0];
         const y0 = basePos[i * 2 + 1];
@@ -131,7 +159,12 @@ const BeamBackground: React.FC = () => {
         dots.setMatrixAt(i, mat);
       }
       dots.instanceMatrix.needsUpdate = true;
-      composer.render();
+
+      if (isMobile) {
+        renderer.render(scene, camera);
+      } else if (composer) {
+        composer.render();
+      }
     }
 
     const resizeCamera = () => {
@@ -152,11 +185,16 @@ const BeamBackground: React.FC = () => {
       camera.updateProjectionMatrix();
 
       renderer.setSize(w, h);
-      composer.setSize(w, h);
-      if (rgbShift.uniforms['resolution']) {
+
+      if (composer) {
+        composer.setSize(w, h);
+      }
+      if (rgbShift && rgbShift.uniforms['resolution']) {
         rgbShift.uniforms['resolution'].value.set(w, h);
       }
-      bloom.setSize(w, h);
+      if (bloom) {
+        bloom.setSize(w, h);
+      }
     };
 
     const observer = new ResizeObserver(() => {
@@ -177,8 +215,9 @@ const BeamBackground: React.FC = () => {
       }
       geometry.dispose();
       material.dispose();
+      if (composer) composer.dispose();
     };
-  }, []);
+  }, [isMobile]);
 
   return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />;
 };
@@ -188,6 +227,7 @@ export default function Hero() {
   const [displayText, setDisplayText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const skills = ['Python', 'AWS', 'Security', 'Operations'];
 
@@ -217,7 +257,7 @@ export default function Hero() {
 
   return (
     <div className="relative w-full min-h-screen bg-bg-dark overflow-hidden">
-      <BeamBackground />
+      <BeamBackground isMobile={isMobile} />
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 text-center">
         <div className="max-w-5xl mx-auto space-y-8">
@@ -227,15 +267,15 @@ export default function Hero() {
             transition={{ duration: 0.8 }}
             className="space-y-4"
           >
-            <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-serif text-secondary leading-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-serif text-secondary leading-tight">
               Solutions Engineer: Where Operations Meet Innovation
             </h1>
-            <p className="text-xl md:text-2xl lg:text-3xl text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto">
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto">
               Bridging the gap between business operations and technical implementation through full-stack development, cloud infrastructure, and data-driven solutions.
             </p>
-            <div className="flex items-center justify-center gap-4 text-3xl md:text-4xl lg:text-5xl font-serif mt-8">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif mt-8">
               <span className="text-secondary">Specializing in</span>
-              <span className="text-primary min-w-[300px] text-left">
+              <span className="text-primary min-w-[200px] sm:min-w-[300px] text-center sm:text-left whitespace-nowrap">
                 {displayText}
                 <span className="animate-pulse">|</span>
               </span>
@@ -246,17 +286,17 @@ export default function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mt-12"
+            className="flex flex-col sm:flex-row gap-4 justify-center mt-12 w-full sm:w-auto"
           >
             <Link
               href="/projects"
-              className="px-8 py-4 bg-primary hover:bg-primary/90 text-bg-dark rounded-lg font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/25"
+              className="px-8 py-4 bg-primary hover:bg-primary/90 text-bg-dark rounded-lg font-semibold text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/25 w-full sm:w-auto"
             >
               View My Projects
             </Link>
             <button
               onClick={() => setIsResumeModalOpen(true)}
-              className="px-8 py-4 bg-transparent border-2 border-primary/30 hover:border-primary text-secondary rounded-lg font-semibold text-lg transition-all duration-300 hover:scale-105 backdrop-blur-sm"
+              className="px-8 py-4 bg-transparent border-2 border-primary/30 hover:border-primary text-secondary rounded-lg font-semibold text-lg transition-all duration-300 hover:scale-105 backdrop-blur-sm w-full sm:w-auto"
               aria-label="Download resume - opens resume selection modal"
             >
               Download Resume
@@ -264,10 +304,10 @@ export default function Hero() {
           </motion.div>
         </div>
       </div>
-      
-      <ResumeModal 
-        isOpen={isResumeModalOpen} 
-        onClose={() => setIsResumeModalOpen(false)} 
+
+      <ResumeModal
+        isOpen={isResumeModalOpen}
+        onClose={() => setIsResumeModalOpen(false)}
       />
     </div>
   );

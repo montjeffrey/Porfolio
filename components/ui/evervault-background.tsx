@@ -1,10 +1,11 @@
 "use client";
 
 import { useMotionValue, useSpring } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useMotionTemplate, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface EvervaultBackgroundProps {
   className?: string;
@@ -26,11 +27,12 @@ export function EvervaultBackground({
   className,
   radius = 300,
 }: EvervaultBackgroundProps) {
+  const isMobile = useIsMobile();
   let mouseX = useMotionValue(0);
   let mouseY = useMotionValue(0);
 
-  // Use spring for smooth, natural movement
-  const springConfig = { damping: 25, stiffness: 200 };
+  // Use spring for smooth, natural movement - slightly stiffer on mobile for responsiveness
+  const springConfig = { damping: 25, stiffness: isMobile ? 300 : 200 };
   const smoothMouseX = useSpring(mouseX, springConfig);
   const smoothMouseY = useSpring(mouseY, springConfig);
 
@@ -38,67 +40,64 @@ export function EvervaultBackground({
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-  // Generate enough text to cover the entire section (more characters)
   useEffect(() => {
-    // Generate significantly more text for better coverage
-    // Use more characters per line and more lines to cover full width and height
-    // Increased significantly to ensure full coverage with no gaps
-    let charsPerLine = 800; // Further increased for ultra-wide screens
-    let numLines = 500; // Increased for taller sections - more lines
+    // Generate text based on device capability
+    // Mobile: Less dense, static generation
+    // Desktop: High density, dynamic regeneration
+    let charsPerLine = isMobile ? 40 : 800;
+    let numLines = isMobile ? 30 : 500;
     let fullString = "";
     for (let i = 0; i < numLines; i++) {
       fullString += generateRandomString(charsPerLine) + "\n";
     }
     setRandomString(fullString);
-  }, []);
+  }, [isMobile]);
 
-  // Track mouse globally to work even when hovering over cards/header
+  // Track mouse/touch globally
   useEffect(() => {
     let animationFrame: number;
     let lastUpdateTime = 0;
-    const updateInterval = 50; // Update text every 50ms max
+    const updateInterval = 50;
     let rafId: number;
 
-    const handleMouseMove = (event: MouseEvent) => {
+    const handleMove = (x: number, y: number) => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const clientX = x - rect.left;
+        const clientY = y - rect.top;
 
-        // Check if mouse is within or near container bounds (with buffer for smooth transitions)
-        const buffer = 100; // Buffer zone for smooth transitions
+        const buffer = 100;
         const isNearContainer =
-          x >= -buffer && x <= rect.width + buffer &&
-          y >= -buffer && y <= rect.height + buffer;
+          clientX >= -buffer && clientX <= rect.width + buffer &&
+          clientY >= -buffer && clientY <= rect.height + buffer;
 
         if (isNearContainer) {
-          // Always update position for smooth tracking, even slightly outside bounds
-          const clampedX = Math.max(0, Math.min(rect.width, x));
-          const clampedY = Math.max(0, Math.min(rect.height, y));
+          const clampedX = Math.max(0, Math.min(rect.width, clientX));
+          const clampedY = Math.max(0, Math.min(rect.height, clientY));
 
           setIsHovered(true);
 
-          // Use requestAnimationFrame for smooth updates
           if (rafId) cancelAnimationFrame(rafId);
           rafId = requestAnimationFrame(() => {
             mouseX.set(clampedX);
             mouseY.set(clampedY);
           });
 
-          // Regenerate text periodically for dynamic feel (throttled)
-          const now = Date.now();
-          if (now - lastUpdateTime > updateInterval) {
-            lastUpdateTime = now;
-            animationFrame = requestAnimationFrame(() => {
-              // Regenerate with line breaks for better coverage
-              let charsPerLine = 800;
-              let numLines = 500;
-              let fullString = "";
-              for (let i = 0; i < numLines; i++) {
-                fullString += generateRandomString(charsPerLine) + "\n";
-              }
-              setRandomString(fullString);
-            });
+          // Only regenerate text on Desktop
+          if (!isMobile) {
+            const now = Date.now();
+            if (now - lastUpdateTime > updateInterval) {
+              lastUpdateTime = now;
+              animationFrame = requestAnimationFrame(() => {
+                let charsPerLine = 800;
+                let numLines = 500;
+                let fullString = "";
+                for (let i = 0; i < numLines; i++) {
+                  fullString += generateRandomString(charsPerLine) + "\n";
+                }
+                setRandomString(fullString);
+              });
+            }
           }
         } else {
           setIsHovered(false);
@@ -106,29 +105,40 @@ export function EvervaultBackground({
       }
     };
 
+    const handleMouseMove = (event: MouseEvent) => {
+      handleMove(event.clientX, event.clientY);
+    };
+
+    // Add touch support for mobile interaction
+    const handleTouchMove = (event: TouchEvent) => {
+      // Prevent default only if inside container to avoid blocking scroll elsewhere 
+      // but here we want the 'flashlight' to follow finger
+      const touch = event.touches[0];
+      handleMove(touch.clientX, touch.clientY);
+    };
+
     const handleMouseLeave = () => {
       setIsHovered(false);
     };
 
-    // Use document-level listener to catch all mouse movements
     document.addEventListener("mousemove", handleMouseMove, { passive: true });
+
+    // Add passive touch listener
     if (containerRef.current) {
       containerRef.current.addEventListener("mouseleave", handleMouseLeave);
+      containerRef.current.addEventListener("touchmove", handleTouchMove, { passive: true });
     }
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       if (containerRef.current) {
         containerRef.current.removeEventListener("mouseleave", handleMouseLeave);
+        containerRef.current.removeEventListener("touchmove", handleTouchMove);
       }
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
-      }
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-      }
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [mouseX, mouseY]);
+  }, [mouseX, mouseY, isMobile]);
 
   return (
     <div
@@ -139,7 +149,14 @@ export function EvervaultBackground({
       )}
       style={{ margin: 0, padding: 0 }}
     >
-      <EvervaultPattern mouseX={smoothMouseX} mouseY={smoothMouseY} randomString={randomString} radius={radius} isHovered={isHovered} />
+      <EvervaultPattern
+        mouseX={smoothMouseX}
+        mouseY={smoothMouseY}
+        randomString={randomString}
+        radius={radius}
+        isHovered={isHovered}
+        isMobile={isMobile}
+      />
     </div>
   );
 }
@@ -150,12 +167,14 @@ function EvervaultPattern({
   randomString,
   radius,
   isHovered,
+  isMobile
 }: {
   mouseX: ReturnType<typeof useMotionValue<number>>;
   mouseY: ReturnType<typeof useMotionValue<number>>;
   randomString: string;
   radius: number;
   isHovered: boolean;
+  isMobile: boolean;
 }) {
   let maskImage = useMotionTemplate`radial-gradient(${radius}px at ${mouseX}px ${mouseY}px, white, transparent)`;
   let style = { maskImage, WebkitMaskImage: maskImage };
@@ -165,7 +184,7 @@ function EvervaultPattern({
       {/* Base gradient fade */}
       <div className="absolute inset-0 [mask-image:linear-gradient(white,transparent)] opacity-30 transition-opacity duration-500" />
 
-      {/* Vibrant gradient layer - mixing theme colors for an "alive" feel */}
+      {/* Vibrant gradient layer */}
       <motion.div
         className={`absolute inset-0 backdrop-blur-xl transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
           }`}
@@ -180,7 +199,7 @@ function EvervaultPattern({
         }}
       />
 
-      {/* Animated text layer - using secondary color, always visible but masked */}
+      {/* Animated text layer */}
       <motion.div
         className={`absolute inset-0 mix-blend-overlay transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
           }`}
@@ -202,6 +221,8 @@ function EvervaultPattern({
             boxSizing: "border-box",
             lineHeight: 1,
             letterSpacing: "-0.08em",
+            // Optimized text rendering for mobile
+            textRendering: isMobile ? "optimizeSpeed" : "optimizeLegibility",
           }}
         >
           {randomString}
