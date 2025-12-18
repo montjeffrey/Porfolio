@@ -22,10 +22,13 @@ const featuredProjects = [
   },
 ];
 
+import { DotBackground } from "@/components/ui/dot-background";
+
 export default function FeaturedProjects() {
   return (
-    <section className="py-20 px-6 bg-bg-elevated">
-      <div className="max-w-7xl mx-auto">
+    <section className="relative py-20 px-6 bg-bg-elevated overflow-hidden">
+      <DotBackground />
+      <div className="relative z-10 max-w-7xl mx-auto">
         <motion.h2
           initial={{ opacity: 0, y: -80 }}
           whileInView={{ opacity: 1, y: 0 }}

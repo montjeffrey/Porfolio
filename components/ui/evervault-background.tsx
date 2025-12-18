@@ -31,8 +31,13 @@ export function EvervaultBackground({
   let mouseX = useMotionValue(0);
   let mouseY = useMotionValue(0);
 
+<<<<<<< HEAD
   // Use spring for smooth, natural movement - slightly stiffer on mobile for responsiveness
   const springConfig = { damping: 25, stiffness: isMobile ? 300 : 200 };
+=======
+  // Use spring for smooth, natural movement
+  const springConfig = { damping: 25, stiffness: 200 };
+>>>>>>> Main
   const smoothMouseX = useSpring(mouseX, springConfig);
   const smoothMouseY = useSpring(mouseY, springConfig);
 
@@ -40,6 +45,7 @@ export function EvervaultBackground({
   const [isHovered, setIsHovered] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
+<<<<<<< HEAD
   useEffect(() => {
     // Generate text based on device capability
     // Mobile: Less dense, static generation
@@ -52,6 +58,27 @@ export function EvervaultBackground({
     }
     setRandomString(fullString);
   }, [isMobile]);
+=======
+  // Generate enough text to cover the entire section
+  useEffect(() => {
+    const updateGrid = () => {
+      if (!containerRef.current) return;
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      const charsPerLine = Math.ceil(width / 6) + 10;
+      const numLines = Math.ceil(height / 10) + 10;
+
+      let fullString = "";
+      for (let i = 0; i < numLines; i++) {
+        fullString += generateRandomString(charsPerLine) + "\n";
+      }
+      setRandomString(fullString);
+    };
+
+    updateGrid();
+    window.addEventListener('resize', updateGrid);
+    return () => window.removeEventListener('resize', updateGrid);
+  }, []);
+>>>>>>> Main
 
   // Track mouse/touch globally
   useEffect(() => {
@@ -66,6 +93,7 @@ export function EvervaultBackground({
         const clientX = x - rect.left;
         const clientY = y - rect.top;
 
+<<<<<<< HEAD
         const buffer = 100;
         const isNearContainer =
           clientX >= -buffer && clientX <= rect.width + buffer &&
@@ -77,12 +105,29 @@ export function EvervaultBackground({
 
           setIsHovered(true);
 
+=======
+        // Check if mouse is within or near container bounds (with buffer for smooth transitions)
+        const buffer = 100; // Buffer zone for smooth transitions
+        const isNearContainer =
+          x >= -buffer && x <= rect.width + buffer &&
+          y >= -buffer && y <= rect.height + buffer;
+
+        if (isNearContainer) {
+          // Always update position for smooth tracking, even slightly outside bounds
+          const clampedX = Math.max(0, Math.min(rect.width, x));
+          const clampedY = Math.max(0, Math.min(rect.height, y));
+
+          setIsHovered(true);
+
+          // Use requestAnimationFrame for smooth updates
+>>>>>>> Main
           if (rafId) cancelAnimationFrame(rafId);
           rafId = requestAnimationFrame(() => {
             mouseX.set(clampedX);
             mouseY.set(clampedY);
           });
 
+<<<<<<< HEAD
           // Only regenerate text on Desktop
           if (!isMobile) {
             const now = Date.now();
@@ -98,6 +143,29 @@ export function EvervaultBackground({
                 setRandomString(fullString);
               });
             }
+=======
+          // Regenerate text periodically for dynamic feel (throttled)
+          const now = Date.now();
+          if (now - lastUpdateTime > 100) { // Increased to 100ms for better performance
+            lastUpdateTime = now;
+            animationFrame = requestAnimationFrame(() => {
+              if (!containerRef.current) return;
+
+              const { width, height } = containerRef.current.getBoundingClientRect();
+
+              // Dynamic grid calculation:
+              // Font is approx 7px width, 10px height at standard density
+              // We add a buffer to ensure coverage
+              const charsPerLine = Math.ceil(width / 6) + 10;
+              const numLines = Math.ceil(height / 10) + 10;
+
+              let fullString = "";
+              for (let i = 0; i < numLines; i++) {
+                fullString += generateRandomString(charsPerLine) + "\n";
+              }
+              setRandomString(fullString);
+            });
+>>>>>>> Main
           }
         } else {
           setIsHovered(false);
@@ -184,7 +252,11 @@ function EvervaultPattern({
       {/* Base gradient fade */}
       <div className="absolute inset-0 [mask-image:linear-gradient(white,transparent)] opacity-30 transition-opacity duration-500" />
 
+<<<<<<< HEAD
       {/* Vibrant gradient layer */}
+=======
+      {/* Vibrant gradient layer - mixing theme colors for an "alive" feel */}
+>>>>>>> Main
       <motion.div
         className={`absolute inset-0 backdrop-blur-xl transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
           }`}

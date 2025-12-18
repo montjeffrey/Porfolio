@@ -256,10 +256,15 @@ export default function Hero() {
   }, [displayText, isDeleting, textIndex, skills]);
 
   return (
+<<<<<<< HEAD
     <div className="relative w-full min-h-screen bg-bg-dark overflow-hidden">
       <BeamBackground isMobile={isMobile} />
+=======
+    <div className="relative w-full min-h-[100dvh] bg-bg-dark overflow-hidden">
+      <BeamBackground />
+>>>>>>> Main
 
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 text-center">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
         <div className="max-w-5xl mx-auto space-y-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -267,6 +272,7 @@ export default function Hero() {
             transition={{ duration: 0.8 }}
             className="space-y-4"
           >
+<<<<<<< HEAD
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-serif text-secondary leading-tight">
               Solutions Engineer: Where Operations Meet Innovation
             </h1>
@@ -276,6 +282,17 @@ export default function Hero() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif mt-8">
               <span className="text-secondary">Specializing in</span>
               <span className="text-primary min-w-[200px] sm:min-w-[300px] text-center sm:text-left whitespace-nowrap">
+=======
+            <h1 className="text-[clamp(2.5rem,5vw,6rem)] font-serif text-secondary leading-tight">
+              Solutions Engineer: Where Operations Meet Innovation
+            </h1>
+            <p className="text-[clamp(1.1rem,2vw,1.875rem)] text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto">
+              Bridging the gap between business operations and technical implementation through full-stack development, cloud infrastructure, and data-driven solutions.
+            </p>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-[clamp(3rem,4vw,3.5rem)] font-serif mt-8">
+              <span className="text-secondary">Specializing in</span>
+              <span className="text-primary min-w-[300px] text-center">
+>>>>>>> Main
                 {displayText}
                 <span className="animate-pulse">|</span>
               </span>
