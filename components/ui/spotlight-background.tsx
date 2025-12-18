@@ -17,11 +17,19 @@ export const SpotlightBackground = () => {
             mouseY.set(clientY);
         };
 
-        // Auto-drift animation if no mouse interaction (optional expansion)
-        // For now, simple interaction or centered fallback
+        const handleTouchMove = (e: TouchEvent) => {
+            const touch = e.touches[0];
+            mouseX.set(touch.clientX);
+            mouseY.set(touch.clientY);
+        };
+
         if (typeof window !== "undefined") {
             window.addEventListener("mousemove", handleMouseMove);
-            return () => window.removeEventListener("mousemove", handleMouseMove);
+            window.addEventListener("touchmove", handleTouchMove, { passive: true });
+            return () => {
+                window.removeEventListener("mousemove", handleMouseMove);
+                window.removeEventListener("touchmove", handleTouchMove);
+            };
         }
     }, [mouseX, mouseY]);
 

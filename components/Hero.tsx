@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ResumeModal } from '@/components/ui/resume-modal';
 import { useIsMobile } from '../hooks/use-mobile';
+import { MobileScrollIndicator } from '@/components/ui/mobile-scroll-indicator';
 
 interface BeamBackgroundProps {
   isMobile: boolean;
@@ -304,6 +305,8 @@ export default function Hero() {
           </motion.div>
         </div>
       </div>
+
+      <MobileScrollIndicator />
 
       <ResumeModal
         isOpen={isResumeModalOpen}

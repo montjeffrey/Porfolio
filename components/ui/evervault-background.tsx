@@ -1,8 +1,7 @@
 "use client";
 
-import { useMotionValue, useSpring } from "framer-motion";
-import { useState, useEffect } from "react";
-import { useMotionTemplate, motion } from "framer-motion";
+import { useMotionValue, useSpring, useMotionTemplate, motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import React from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -28,117 +27,113 @@ export function EvervaultBackground({
   radius = 300,
 }: EvervaultBackgroundProps) {
   const isMobile = useIsMobile();
-  let mouseX = useMotionValue(0);
-  let mouseY = useMotionValue(0);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
 
-  // Use spring for smooth, natural movement - slightly stiffer on mobile for responsiveness
-  const springConfig = { damping: 25, stiffness: isMobile ? 300 : 200 };
+  // Optimized spring config for fluid cursor follow
+  const springConfig = { damping: 30, stiffness: 150 };
   const smoothMouseX = useSpring(mouseX, springConfig);
   const smoothMouseY = useSpring(mouseY, springConfig);
 
-  const [randomString, setRandomString] = useState("");
-  const [isHovered, setIsHovered] = useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // Cache bounds to avoid layout thrashing
+  const boundsRef = useRef<DOMRect | null>(null);
+
+  // Robust Bounds Caching & Resize Handling
   useEffect(() => {
-    // Generate text based on device capability
-    // Mobile: Less dense, static generation
-    // Desktop: High density, dynamic regeneration
-    let charsPerLine = isMobile ? 40 : 800;
-    let numLines = isMobile ? 30 : 500;
-    let fullString = "";
-    for (let i = 0; i < numLines; i++) {
-      fullString += generateRandomString(charsPerLine) + "\n";
-    }
-    setRandomString(fullString);
-  }, [isMobile]);
+    if (!containerRef.current) return;
 
-  // Track mouse/touch globally
-  useEffect(() => {
-    let animationFrame: number;
-    let lastUpdateTime = 0;
-    const updateInterval = 50;
-    let rafId: number;
-
-    const handleMove = (x: number, y: number) => {
+    const updateBounds = () => {
       if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const clientX = x - rect.left;
-        const clientY = y - rect.top;
-
-        const buffer = 100;
-        const isNearContainer =
-          clientX >= -buffer && clientX <= rect.width + buffer &&
-          clientY >= -buffer && clientY <= rect.height + buffer;
-
-        if (isNearContainer) {
-          const clampedX = Math.max(0, Math.min(rect.width, clientX));
-          const clampedY = Math.max(0, Math.min(rect.height, clientY));
-
-          setIsHovered(true);
-
-          if (rafId) cancelAnimationFrame(rafId);
-          rafId = requestAnimationFrame(() => {
-            mouseX.set(clampedX);
-            mouseY.set(clampedY);
-          });
-
-          // Only regenerate text on Desktop
-          if (!isMobile) {
-            const now = Date.now();
-            if (now - lastUpdateTime > updateInterval) {
-              lastUpdateTime = now;
-              animationFrame = requestAnimationFrame(() => {
-                let charsPerLine = 800;
-                let numLines = 500;
-                let fullString = "";
-                for (let i = 0; i < numLines; i++) {
-                  fullString += generateRandomString(charsPerLine) + "\n";
-                }
-                setRandomString(fullString);
-              });
-            }
-          }
-        } else {
-          setIsHovered(false);
-        }
+        boundsRef.current = containerRef.current.getBoundingClientRect();
       }
     };
 
+    updateBounds();
+    const resizeObserver = new ResizeObserver(() => updateBounds());
+    resizeObserver.observe(containerRef.current);
+    window.addEventListener("scroll", updateBounds, { passive: true, capture: true });
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("scroll", updateBounds);
+    };
+  }, []);
+
+  // Optimized Mouse Handling
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
-      handleMove(event.clientX, event.clientY);
+      if (!boundsRef.current) return;
+      const { left, top, width, height } = boundsRef.current;
+      const clientX = event.clientX - left;
+      const clientY = event.clientY - top;
+
+      // Small buffer to keep cursor active near edges
+      const buffer = 50;
+      if (
+        clientX >= -buffer &&
+        clientX <= width + buffer &&
+        clientY >= -buffer &&
+        clientY <= height + buffer
+      ) {
+        mouseX.set(clientX);
+        mouseY.set(clientY);
+        if (!isHovered) setIsHovered(true);
+      } else {
+        if (isHovered) setIsHovered(false);
+      }
     };
 
-    // Add touch support for mobile interaction
     const handleTouchMove = (event: TouchEvent) => {
-      // Prevent default only if inside container to avoid blocking scroll elsewhere 
-      // but here we want the 'flashlight' to follow finger
+      if (!boundsRef.current) return;
       const touch = event.touches[0];
-      handleMove(touch.clientX, touch.clientY);
+      const { left, top, width, height } = boundsRef.current;
+      const clientX = touch.clientX - left;
+      const clientY = touch.clientY - top;
+
+      if (clientX >= 0 && clientX <= width && clientY >= 0 && clientY <= height) {
+        mouseX.set(clientX);
+        mouseY.set(clientY);
+        if (!isHovered) setIsHovered(true);
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove, { passive: true });
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [isHovered, mouseX, mouseY]);
+
+  // Separate effect for container-scoped events
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!boundsRef.current) return;
+      const touch = e.touches[0];
+      const x = touch.clientX - boundsRef.current.left;
+      const y = touch.clientY - boundsRef.current.top;
+      mouseX.set(x);
+      mouseY.set(y);
     };
 
     const handleMouseLeave = () => {
       setIsHovered(false);
     };
 
-    document.addEventListener("mousemove", handleMouseMove, { passive: true });
-
-    // Add passive touch listener
-    if (containerRef.current) {
-      containerRef.current.addEventListener("mouseleave", handleMouseLeave);
-      containerRef.current.addEventListener("touchmove", handleTouchMove, { passive: true });
-    }
+    container.addEventListener("touchmove", handleTouchMove, { passive: true });
+    container.addEventListener("mouseleave", handleMouseLeave);
 
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      if (containerRef.current) {
-        containerRef.current.removeEventListener("mouseleave", handleMouseLeave);
-        containerRef.current.removeEventListener("touchmove", handleTouchMove);
-      }
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [mouseX, mouseY, isMobile]);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("mouseleave", handleMouseLeave);
+    }
+  }, [mouseX, mouseY]);
 
   return (
     <div
@@ -152,7 +147,6 @@ export function EvervaultBackground({
       <EvervaultPattern
         mouseX={smoothMouseX}
         mouseY={smoothMouseY}
-        randomString={randomString}
         radius={radius}
         isHovered={isHovered}
         isMobile={isMobile}
@@ -161,23 +155,93 @@ export function EvervaultBackground({
   );
 }
 
-function EvervaultPattern({
+// Canvas-based Pattern Component
+const EvervaultPattern = React.memo(function EvervaultPattern({
   mouseX,
   mouseY,
-  randomString,
   radius,
   isHovered,
   isMobile
 }: {
   mouseX: ReturnType<typeof useMotionValue<number>>;
   mouseY: ReturnType<typeof useMotionValue<number>>;
-  randomString: string;
   radius: number;
   isHovered: boolean;
   isMobile: boolean;
 }) {
   let maskImage = useMotionTemplate`radial-gradient(${radius}px at ${mouseX}px ${mouseY}px, white, transparent)`;
   let style = { maskImage, WebkitMaskImage: maskImage };
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Configuration
+    const fontSize = isMobile ? 12 : 15;
+    const font = `${fontSize}px monospace`;
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    // Throttling frames for scramble effect
+    let lastTime = 0;
+    const interval = 50;
+    let animationFrameId: number;
+
+    const draw = (time: number) => {
+      // Logic for automatic resizing
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      const width = rect.width * dpr;
+      const height = rect.height * dpr;
+
+      // Efficient resize check
+      if (Math.abs(canvas.width - width) > 1 || Math.abs(canvas.height - height) > 1) {
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.scale(dpr, dpr);
+        ctx.font = font;
+      }
+
+      if (time - lastTime > interval) {
+        lastTime = time;
+
+        if (canvas.width === width) {
+          ctx.clearRect(0, 0, rect.width, rect.height);
+        }
+
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.fillStyle = "rgba(240, 237, 228, 0.8)"; // text-secondary/80
+        ctx.textBaseline = "top";
+
+        const charWidth = ctx.measureText("M").width;
+        const columns = Math.ceil(rect.width / charWidth) + 2;
+        const rows = Math.ceil(rect.height / fontSize);
+
+        // Draw the grid
+        for (let i = 0; i < rows; i++) {
+          let line = "";
+          for (let j = 0; j < columns; j++) {
+            line += chars[Math.floor(Math.random() * chars.length)];
+          }
+          ctx.fillText(line, 0, i * fontSize);
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    animationFrameId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isMobile]);
 
   return (
     <div className="pointer-events-none m-0 p-0" style={{ margin: 0, padding: 0 }}>
@@ -186,7 +250,7 @@ function EvervaultPattern({
 
       {/* Vibrant gradient layer */}
       <motion.div
-        className={`absolute inset-0 backdrop-blur-xl transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
+        className={`absolute inset-0 transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
           }`}
         style={{
           ...style,
@@ -196,38 +260,21 @@ function EvervaultPattern({
             rgba(240, 237, 228, 0.4) 50%,
             rgba(231, 125, 34, 0.3) 75%,
             transparent 100%)`,
+          willChange: "mask-image"
         }}
       />
 
-      {/* Animated text layer */}
+      {/* Canvas Text Layer - masked by the same motion template */}
       <motion.div
         className={`absolute inset-0 mix-blend-overlay transition-opacity duration-300 ${isHovered ? "opacity-100" : "opacity-0"
           }`}
         style={style}
       >
-        <p
-          className="absolute inset-y-0 text-[11px] md:text-[12px] lg:text-[13px] leading-none whitespace-pre-wrap text-secondary/80 font-mono font-bold overflow-hidden"
-          style={{
-            padding: 0,
-            margin: 0,
-            top: 0,
-            bottom: 0,
-            left: "-15%",
-            right: "-15%",
-            width: "130%",
-            height: "100%",
-            maxWidth: "130%",
-            maxHeight: "100%",
-            boxSizing: "border-box",
-            lineHeight: 1,
-            letterSpacing: "-0.08em",
-            // Optimized text rendering for mobile
-            textRendering: isMobile ? "optimizeSpeed" : "optimizeLegibility",
-          }}
-        >
-          {randomString}
-        </p>
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full block"
+        />
       </motion.div>
     </div>
   );
-}
+});

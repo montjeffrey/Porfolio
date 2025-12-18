@@ -49,7 +49,8 @@ const SkillCard = ({
       className="relative group rounded-2xl p-8 border transition-all duration-300 overflow-hidden
         backdrop-blur-xl bg-bg-elevated/60
         border-primary/30 hover:border-primary/60
-        hover:bg-bg-elevated/40 hover:backdrop-blur-2xl hover:scale-105 hover:-translate-y-2
+        hover:bg-bg-elevated/40 hover:backdrop-blur-2xl md:hover:scale-105 md:hover:-translate-y-2
+        active:scale-95 transition-transform
         shadow-lg shadow-primary/10 hover:shadow-primary/20"
     >
       {/* Glassmorphism overlay for depth */}
