@@ -40,7 +40,7 @@ export function EvervaultBackground({
   // Cache bounds to avoid layout thrashing
   const boundsRef = useRef<DOMRect | null>(null);
 
-  // Optimized Bounds Caching - No scroll listener, uses IntersectionObserver instead
+  // Bounds Caching with scroll listener for accurate cursor tracking
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -56,20 +56,35 @@ export function EvervaultBackground({
     const resizeObserver = new ResizeObserver(() => updateBounds());
     resizeObserver.observe(containerRef.current);
 
-    // Update bounds when element enters/exits viewport (replaces scroll listener)
+    // Update bounds when element enters/exits viewport
     const intersectionObserver = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           updateBounds();
         }
       },
-      { threshold: [0, 0.1, 0.9, 1] } // Track visibility changes
+      { threshold: [0, 0.1, 0.5, 0.9, 1] } // More granular thresholds
     );
     intersectionObserver.observe(containerRef.current);
+
+    // Throttled scroll listener to keep bounds fresh during scroll
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          updateBounds();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
+      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
@@ -96,20 +111,6 @@ export function EvervaultBackground({
         if (!isHovered) setIsHovered(true);
       } else {
         if (isHovered) setIsHovered(false);
-      }
-    };
-
-    const handleTouchMove = (event: TouchEvent) => {
-      if (!boundsRef.current) return;
-      const touch = event.touches[0];
-      const { left, top, width, height } = boundsRef.current;
-      const clientX = touch.clientX - left;
-      const clientY = touch.clientY - top;
-
-      if (clientX >= 0 && clientX <= width && clientY >= 0 && clientY <= height) {
-        mouseX.set(clientX);
-        mouseY.set(clientY);
-        if (!isHovered) setIsHovered(true);
       }
     };
 

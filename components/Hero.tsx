@@ -199,6 +199,17 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     let lastFrameTime = performance.now();
     const targetFrameTime = tier === 'flagship' ? 1000 / 60 : 1000 / 120; // 60fps for mobile, 120fps for desktop
 
+    // Pre-allocated objects to avoid GC pressure (hoisted outside animation loop)
+    const mat = new THREE.Matrix4();
+    const pos = new THREE.Vector3();
+
+    // Pre-computed constants
+    const TWO_PI = Math.PI * 2;
+    const speed = 0.4;
+    const amp = 0.8;
+    const freq = 0.25;
+    const falloff = 0.04;
+
     function animate() {
       animationFrameId = requestAnimationFrame(animate);
 
@@ -213,28 +224,19 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       lastFrameTime = now - (delta % targetFrameTime);
 
       const t = clock.getElapsedTime();
-      const speed = 0.4;
-      const amp = 0.8;
-      const freq = 0.25;
-      const falloff = 0.04;
+      const phase = (Math.sin(TWO_PI * t * freq) + 1) * 0.5;
 
-      const phase = (Math.sin(2 * Math.PI * t * freq) + 1) * 0.5;
-
-      if (rgbShift) { // Always update RGB shift if it exists
+      if (rgbShift) {
         rgbShift.uniforms['amount'].value = 0.0015 + phase * 0.003;
       }
 
-      const mat = new THREE.Matrix4();
-      const pos = new THREE.Vector3();
-
-      // Only update matrices, rendering happens regardless
+      // Update instance matrices - reusing pre-allocated objects
       for (let i = 0; i < total; i++) {
         const x0 = basePos[i * 2 + 0];
         const y0 = basePos[i * 2 + 1];
         const dist = distArr[i];
-        const localDelta = THREE.MathUtils.lerp(0.05, 0.2, Math.min(1.0, dist / 70.0));
         const tt = t * speed - dist * falloff;
-        const k = 1 + Math.sin(2 * Math.PI * tt * freq) * amp;
+        const k = 1 + Math.sin(TWO_PI * tt * freq) * amp;
         pos.set(x0 * k, y0 * k, 0);
         mat.set(1, 0, 0, pos.x, 0, 1, 0, pos.y, 0, 0, 1, 0, 0, 0, 0, 1);
         dots.setMatrixAt(i, mat);
