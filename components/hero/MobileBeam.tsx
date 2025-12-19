@@ -28,7 +28,7 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
         // 'mediump' is the sweet spot. 'lowp' causes visible jitter in position calculations.
         const renderer = new THREE.WebGLRenderer({
             antialias: false,
-            alpha: false, // Reverted to FALSE to ensure visibility against CSS background
+            alpha: true, // Allow transparency composition with background
             powerPreference: 'high-performance',
             precision: 'mediump',
         });
@@ -38,7 +38,7 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
         const pixelRatio = Math.min(window.devicePixelRatio, 1.0);
         renderer.setPixelRatio(pixelRatio);
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setClearColor(0x0d0d0d, 1); // Explicitly set background color to match design
+        renderer.setClearColor(0x000000, 0); // Transparent clear
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
@@ -56,9 +56,10 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
         const dotCount = cols * rows;
 
         // --- Shader Optimizations ---
-        // Removed explicit 'precision' line to let Three.js handle it from renderer config
 
         const vertexShader = `
+            precision mediump float;
+            
             uniform float uTime;
             
             attribute vec3 position;
@@ -100,6 +101,8 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
         `;
 
         const fragmentShader = `
+            precision mediump float;
+            
             uniform vec3 uColor;
             varying float vAlpha;
             
