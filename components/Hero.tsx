@@ -17,11 +17,21 @@ import { MobileBeam } from './hero/MobileBeam';
 interface BeamBackgroundProps {
   isMobile: boolean;
   tier: 'flagship' | 'high';
+  animationPhase: 'loading' | 'flushing' | 'idle';
 }
 
-const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
+const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier, animationPhase }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldRender, setShouldRender] = useState(false);
+
+  // Refs for smooth parameter transitions
+  const paramsRef = useRef({
+    amp: 0,              // Start with no wave (grow into it)
+    speed: 0.4,
+    opacity: 0,          // Start invisible (fade in)
+    falloff: 0.005,      // Start with "bloom" wide wave (transition to tight rings)
+    expansion: -1.1,     // Start collapsed at center (k ~= 0) - "Explode" outward
+  });
 
   // Lazy initialization - only render when component is visible
   useEffect(() => {
@@ -55,12 +65,12 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       antialias: false,
       alpha: false,
       powerPreference: 'high-performance',
-      precision: tier === 'flagship' ? 'mediump' : 'highp', // mediump sufficient for mobile
+      precision: tier === 'flagship' ? 'mediump' : 'highp', // mediump saves GPU cycles on mobile
     });
 
     // Aggressive pixel ratio optimization for mobile
     const pixelRatio = tier === 'flagship' ?
-      Math.min(window.devicePixelRatio, 1.0) : // Reduced to 1.0 for maximum mobile performance
+      Math.min(window.devicePixelRatio, 1.0) : // 1.0 for maximum mobile performance
       Math.min(window.devicePixelRatio, 2.0);
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -72,17 +82,17 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
 
     const camera = new THREE.OrthographicCamera();
 
-    // Aggressively optimized configuration for mobile Safari
+    // Optimized for smooth 60fps on flagship mobile - reduced dot count, lighter bloom
     const TIER_CONFIG = {
       flagship: {
-        grid: { cols: 45, rows: 45, dotRadius: 0.035, spacing: 0.7, segments: 3 }, // 45x45 grid, triangular dots (3 segments)
-        bloom: { strength: 0.2, radius: 0.3, threshold: 0.5, enabled: true, halfRes: true }, // Lighter bloom at half resolution
-        rgbShift: { amount: 0, enabled: false }, // Disabled for mobile - expensive multi-pass
+        grid: { cols: 35, rows: 35, dotRadius: 0.048, spacing: 0.85, segments: 3 }, // 35x35 = 1,225 dots (larger dots, wider spacing)
+        bloom: { strength: 0.12, radius: 0.15, threshold: 0.6, enabled: true }, // Minimal bloom
+        rgbShift: { amount: 0, enabled: false },
         pixelRatio: 1.0
       },
       high: {
         grid: { cols: 100, rows: 100, dotRadius: 0.025, spacing: 0.55, segments: 8 },
-        bloom: { strength: 0.5, radius: 0.9, threshold: 0.2, enabled: true, halfRes: false },
+        bloom: { strength: 0.5, radius: 0.9, threshold: 0.2, enabled: true },
         rgbShift: { amount: 0.002, enabled: true },
         pixelRatio: 2.0
       }
@@ -99,13 +109,8 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
 
     // Only enable bloom if configured
     if (config.bloom.enabled) {
-      // Use half resolution for mobile to reduce fill-rate cost
-      const bloomScale = config.bloom.halfRes ? 0.5 : 1.0;
       bloom = new UnrealBloomPass(
-        new THREE.Vector2(
-          container.clientWidth * bloomScale,
-          container.clientHeight * bloomScale
-        ),
+        new THREE.Vector2(container.clientWidth, container.clientHeight),
         config.bloom.strength,
         config.bloom.radius,
         config.bloom.threshold
@@ -153,6 +158,9 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     const basePos = new Float32Array(total * 2);
     const distArr = new Float32Array(total);
 
+    // Direct buffer access for maximum performance (bypasses setMatrixAt overhead)
+    const matrixArray = dots.instanceMatrix.array as Float32Array;
+
     let xOffset = (GRID.cols - 1) * GRID.spacing * 0.5;
     let yOffset = (GRID.rows - 1) * GRID.spacing * 0.5;
 
@@ -178,7 +186,6 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
         basePos[idx * 2 + 0] = x;
         basePos[idx * 2 + 1] = y;
         const len = Math.hypot(x, y);
-        const ang = Math.atan2(y, x);
         distArr[idx] = len;
         dummy.position.set(x, y, 0);
         dummy.updateMatrix();
@@ -204,16 +211,9 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     let lastFrameTime = performance.now();
     const targetFrameTime = tier === 'flagship' ? 1000 / 60 : 1000 / 120; // 60fps for mobile, 120fps for desktop
 
-    // Pre-allocated objects to avoid GC pressure (hoisted outside animation loop)
-    const mat = new THREE.Matrix4();
-    const pos = new THREE.Vector3();
-
     // Pre-computed constants
     const TWO_PI = Math.PI * 2;
-    const speed = 0.4;
-    const amp = 0.8;
     const freq = 0.25;
-    const falloff = 0.04;
 
     function animate() {
       animationFrameId = requestAnimationFrame(animate);
@@ -229,22 +229,80 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       lastFrameTime = now - (delta % targetFrameTime);
 
       const t = clock.getElapsedTime();
+
+      // --- TRANSITION LOGIC ---
+      // Target values based on phase
+      let targetAmp = 0.8;
+      let targetSpeed = 0.4;
+      let targetOpacity = tier === 'flagship' ? 0.85 : 1.0;
+      let targetFalloff = 0.04;
+      let targetExpansion = 0;
+
+      if (animationPhase === 'flushing') {
+        targetAmp = 3.5;    // Keep high amp for wave activity
+        targetSpeed = 1.2;
+        targetOpacity = 0.0;
+        targetFalloff = 0.01; // Wide waves
+        targetExpansion = 4.0; // PUSH OUTWARD purely
+      } else if (animationPhase === 'idle') {
+        targetAmp = 0.8;
+        targetSpeed = 0.4;
+        targetOpacity = tier === 'flagship' ? 0.85 : 1.0;
+        targetFalloff = 0.04;
+        targetExpansion = 0;
+
+        // Special check: If we are returning to idle, and opacity is near zero,
+        // snap expansion back so it doesn't look like an implosion while fading in
+        if (paramsRef.current.opacity < 0.1 && paramsRef.current.expansion > 2.0) {
+          paramsRef.current.expansion = 0;
+        }
+      }
+
+      // Smoothly interpolate current values towards targets (Lerp)
+      // Factor 0.04 gives a nice ease-out feel
+      paramsRef.current.amp += (targetAmp - paramsRef.current.amp) * 0.04;
+      paramsRef.current.speed += (targetSpeed - paramsRef.current.speed) * 0.04;
+      paramsRef.current.opacity += (targetOpacity - paramsRef.current.opacity) * 0.04;
+      paramsRef.current.falloff += (targetFalloff - paramsRef.current.falloff) * 0.04;
+      paramsRef.current.expansion += (targetExpansion - paramsRef.current.expansion) * 0.04;
+
+      const { amp: currentAmp, speed: currentSpeed, opacity: currentOpacity, falloff: currentFalloff, expansion: currentExpansion } = paramsRef.current;
+
+      // Update material opacity
+      material.opacity = currentOpacity;
+
       const phase = (Math.sin(TWO_PI * t * freq) + 1) * 0.5;
 
       if (rgbShift) {
         rgbShift.uniforms['amount'].value = 0.0015 + phase * 0.003;
       }
 
-      // Update instance matrices - reusing pre-allocated objects
+      // Update instance matrices using direct buffer writes (faster than setMatrixAt)
       for (let i = 0; i < total; i++) {
         const x0 = basePos[i * 2 + 0];
         const y0 = basePos[i * 2 + 1];
         const dist = distArr[i];
-        const tt = t * speed - dist * falloff;
-        const k = 1 + Math.sin(TWO_PI * tt * freq) * amp;
-        pos.set(x0 * k, y0 * k, 0);
-        mat.set(1, 0, 0, pos.x, 0, 1, 0, pos.y, 0, 0, 1, 0, 0, 0, 0, 1);
-        dots.setMatrixAt(i, mat);
+
+        // Use interpolated speed, amp, and falloff
+        const tt = t * currentSpeed - dist * currentFalloff;
+
+        // Base sine wave modulation
+        let k = 1 + Math.sin(TWO_PI * tt * freq) * currentAmp;
+
+        // Apply pure outward expansion
+        k += currentExpansion;
+
+        const px = x0 * k;
+        const py = y0 * k;
+
+        // Direct buffer write - only update translation (m12, m13) since scale/rotation are identity
+        const offset = i * 16;
+        matrixArray[offset] = 1;       // m0
+        matrixArray[offset + 5] = 1;   // m5
+        matrixArray[offset + 10] = 1;  // m10
+        matrixArray[offset + 12] = px; // m12 (x translation)
+        matrixArray[offset + 13] = py; // m13 (y translation)
+        matrixArray[offset + 15] = 1;  // m15
       }
       dots.instanceMatrix.needsUpdate = true;
 
@@ -319,6 +377,10 @@ export default function Hero() {
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
 
+  // Animation Phase State: loading -> flushing -> idle
+  type AnimationPhase = 'loading' | 'flushing' | 'idle';
+  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('loading');
+
   const tier = usePerformanceTier(); // Use our new hook
 
   // Desktop (high) and flagship mobile get BeamBackground with post-processing
@@ -327,10 +389,19 @@ export default function Hero() {
 
   // Splash screen effect - show content after beam fully loads and settles
   useEffect(() => {
-    const timer = setTimeout(() => {
+    // Sequence of animation events
+    const flushTimer = setTimeout(() => setAnimationPhase('flushing'), 4000); // Start flushing earlier
+    const idleTimer = setTimeout(() => setAnimationPhase('idle'), 4800); // Settle into idle just before content
+
+    const contentTimer = setTimeout(() => {
       setContentVisible(true);
     }, 5000); // Extended delay for smoother animation loading and immersive splash
-    return () => clearTimeout(timer);
+
+    return () => {
+      clearTimeout(flushTimer);
+      clearTimeout(idleTimer);
+      clearTimeout(contentTimer);
+    };
   }, []);
 
   const skills = ['Python', 'AWS', 'Security', 'Operations'];
@@ -363,7 +434,11 @@ export default function Hero() {
     <div className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden pb-20 sm:pb-10">
       {/* Background Layer */}
       {showHeavyBeam ? (
-        <MemoizedBeamBackground isMobile={tier === 'flagship'} tier={tier as 'flagship' | 'high'} />
+        <MemoizedBeamBackground
+          isMobile={tier === 'flagship'}
+          tier={tier as 'flagship' | 'high'}
+          animationPhase={animationPhase}
+        />
       ) : (
         <MobileBeam performanceTier={tier as 'medium' | 'low'} />
       )}
