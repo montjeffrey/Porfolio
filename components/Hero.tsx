@@ -199,11 +199,22 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
 
     const clock = new THREE.Clock();
     let animationFrameId: number;
+    let lastFrameTime = performance.now();
+    const targetFrameTime = tier === 'flagship' ? 1000 / 60 : 1000 / 120; // 60fps for mobile, 120fps for desktop
 
     function animate() {
       animationFrameId = requestAnimationFrame(animate);
 
-      // Limit FPS on mobile if needed, but the scene is now light enough to run full speed
+      // Throttle frame rate for mobile to reduce CPU load
+      const now = performance.now();
+      const delta = now - lastFrameTime;
+
+      if (delta < targetFrameTime) {
+        return; // Skip this frame
+      }
+
+      lastFrameTime = now - (delta % targetFrameTime);
+
       const t = clock.getElapsedTime();
       const speed = 0.4;
       const amp = 0.8;
@@ -219,6 +230,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       const mat = new THREE.Matrix4();
       const pos = new THREE.Vector3();
 
+      // Only update matrices, rendering happens regardless
       for (let i = 0; i < total; i++) {
         const x0 = basePos[i * 2 + 0];
         const y0 = basePos[i * 2 + 1];
@@ -301,12 +313,21 @@ export default function Hero() {
   const [displayText, setDisplayText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [contentVisible, setContentVisible] = useState(false);
 
   const tier = usePerformanceTier(); // Use our new hook
 
   // Desktop (high) and flagship mobile get BeamBackground with post-processing
   // Medium/Low tier gets shader-based MobileBeam
   const showHeavyBeam = tier === 'high' || tier === 'flagship';
+
+  // Splash screen effect - show content after beam initializes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setContentVisible(true);
+    }, 1200); // Delay content appearance for immersive splash effect
+    return () => clearTimeout(timer);
+  }, []);
 
   const skills = ['Python', 'AWS', 'Security', 'Operations'];
 
@@ -343,13 +364,13 @@ export default function Hero() {
         <MobileBeam performanceTier={tier as 'medium' | 'low'} />
       )}
 
-      {/* Content Layer - Improved Mobile Spacing */}
+      {/* Content Layer - Immersive Splash Screen Effect */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100dvh-10rem)] px-8 sm:px-6 text-center">
         <div className="max-w-5xl mx-auto space-y-8 sm:space-y-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
+            animate={contentVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 1.0, ease: "easeOut" }}
             className="space-y-8 sm:space-y-6"
           >
             <h1 className="text-[clamp(2rem,5vw,6rem)] font-serif text-secondary leading-tight px-4 sm:px-2">
@@ -360,17 +381,19 @@ export default function Hero() {
             </p>
             <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 text-[clamp(2.5rem,4vw,3.5rem)] font-serif mt-8 sm:mt-12 min-h-[4rem]">
               <span className="text-secondary">Specializing in</span>
-              <span className="text-primary min-w-[280px] sm:min-w-[300px] text-center">
-                {displayText}
-                <span className="animate-pulse">|</span>
+              <span className="relative min-w-[280px] sm:min-w-[300px] text-center">
+                <span className="relative z-10 text-primary px-4 py-2 rounded-md bg-secondary/95 backdrop-blur-sm inline-block">
+                  {displayText}
+                  <span className="animate-pulse">|</span>
+                </span>
               </span>
             </div>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
+            animate={contentVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 1.0, delay: 0.3, ease: "easeOut" }}
             className="flex flex-col sm:flex-row gap-6 sm:gap-4 justify-center mt-16 sm:mt-12 w-full max-w-md sm:max-w-none mx-auto"
           >
             <Link
