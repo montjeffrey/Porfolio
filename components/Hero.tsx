@@ -17,10 +17,9 @@ import { MobileBeam } from './hero/MobileBeam';
 interface BeamBackgroundProps {
   isMobile: boolean;
   tier: 'flagship' | 'high';
-  animationPhase: 'loading' | 'flushing' | 'idle';
 }
 
-const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier, animationPhase }) => {
+const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [shouldRender, setShouldRender] = useState(false);
 
@@ -210,10 +209,56 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier, animati
     let animationFrameId: number;
     let lastFrameTime = performance.now();
     const targetFrameTime = tier === 'flagship' ? 1000 / 60 : 1000 / 120; // 60fps for mobile, 120fps for desktop
+    const startTime = lastFrameTime;
 
     // Pre-computed constants
     const TWO_PI = Math.PI * 2;
     const freq = 0.25;
+    const smoothing = 2.5;
+    const anticipationStartSeconds = 4.0;
+    const anticipationDurationSeconds = 1.0; // 1s gather
+    const flushStartSeconds = anticipationStartSeconds + anticipationDurationSeconds;
+    const flushDurationSeconds = 1.5; // 1.5s explosion
+    const idleBlendSeconds = 1.0;
+
+    const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
+    const smoothstep = (edge0: number, edge1: number, x: number) => {
+      const t = clamp01((x - edge0) / (edge1 - edge0));
+      return t * t * (3 - 2 * t);
+    };
+
+    const loadingTargets = {
+      amp: 0.6,
+      speed: 0.25,
+      opacity: tier === 'flagship' ? 0.6 : 0.75,
+      falloff: 0.02,
+      expansion: -0.2
+    };
+
+    // New "Gather" phase - pulls back the spring
+    const anticipationTargets = {
+      amp: 0.1,          // Tighten the wave
+      speed: 2.0,        // High energy/vibration
+      opacity: 1.0,      // Max brightness
+      falloff: 0.15,     // Very narrow beam
+      expansion: -1.5    // Pull INWARD strongly
+    };
+
+    const flushTargets = {
+      amp: 3.5,
+      speed: 1.2,
+      opacity: tier === 'flagship' ? 0.16 : 0.2, // Fade out during explosion
+      falloff: 0.01,
+      expansion: 4.0     // Explode OUTWARD
+    };
+
+    const idleTargets = {
+      amp: 0.8,
+      speed: 0.4,
+      opacity: tier === 'flagship' ? 0.85 : 1.0,
+      falloff: 0.04,
+      expansion: 0
+    };
 
     function animate() {
       animationFrameId = requestAnimationFrame(animate);
@@ -228,43 +273,54 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier, animati
 
       lastFrameTime = now - (delta % targetFrameTime);
 
+      const dtSeconds = Math.min(delta / 1000, 0.1);
+      const lerpFactor = 1 - Math.exp(-smoothing * dtSeconds);
+      const elapsedSeconds = (now - startTime) / 1000;
       const t = clock.getElapsedTime();
 
       // --- TRANSITION LOGIC ---
-      // Target values based on phase
-      let targetAmp = 0.8;
-      let targetSpeed = 0.4;
-      let targetOpacity = tier === 'flagship' ? 0.85 : 1.0;
-      let targetFalloff = 0.04;
-      let targetExpansion = 0;
+      // 1. Loading -> Anticipation
+      const anticipationBlend = smoothstep(anticipationStartSeconds, anticipationStartSeconds + anticipationDurationSeconds, elapsedSeconds);
 
-      if (animationPhase === 'flushing') {
-        targetAmp = 3.5;    // Keep high amp for wave activity
-        targetSpeed = 1.2;
-        targetOpacity = 0.0;
-        targetFalloff = 0.01; // Wide waves
-        targetExpansion = 4.0; // PUSH OUTWARD purely
-      } else if (animationPhase === 'idle') {
-        targetAmp = 0.8;
-        targetSpeed = 0.4;
-        targetOpacity = tier === 'flagship' ? 0.85 : 1.0;
-        targetFalloff = 0.04;
-        targetExpansion = 0;
+      // 2. Anticipation -> Flush
+      const flushEnd = flushStartSeconds + flushDurationSeconds;
+      const flushBlend = smoothstep(flushStartSeconds, flushEnd, elapsedSeconds);
 
-        // Special check: If we are returning to idle, and opacity is near zero,
-        // snap expansion back so it doesn't look like an implosion while fading in
-        if (paramsRef.current.opacity < 0.1 && paramsRef.current.expansion > 2.0) {
-          paramsRef.current.expansion = 0;
+      // 3. Flush -> Idle
+      const idleStart = flushEnd;
+      const idleEnd = flushEnd + idleBlendSeconds;
+      const idleBlend = smoothstep(idleStart, idleEnd, elapsedSeconds);
+
+      // Multi-stage Lerp Helper
+      const getMultiStageTarget = (prop: keyof typeof loadingTargets) => {
+        // Stage 1: Load -> Anticipate
+        let val = THREE.MathUtils.lerp(loadingTargets[prop], anticipationTargets[prop], anticipationBlend);
+
+        // Stage 2: -> Flush (Override if in flush phase)
+        if (elapsedSeconds > flushStartSeconds) {
+          val = THREE.MathUtils.lerp(anticipationTargets[prop], flushTargets[prop], flushBlend);
         }
-      }
+
+        // Stage 3: -> Idle (Override if in idle phase)
+        if (elapsedSeconds > flushEnd) {
+          val = THREE.MathUtils.lerp(flushTargets[prop], idleTargets[prop], idleBlend);
+        }
+        return val;
+      };
+
+      const targetAmp = getMultiStageTarget('amp');
+      const targetSpeed = getMultiStageTarget('speed');
+      const targetOpacity = getMultiStageTarget('opacity');
+      const targetFalloff = getMultiStageTarget('falloff');
+      const targetExpansion = getMultiStageTarget('expansion');
 
       // Smoothly interpolate current values towards targets (Lerp)
       // Factor 0.04 gives a nice ease-out feel
-      paramsRef.current.amp += (targetAmp - paramsRef.current.amp) * 0.04;
-      paramsRef.current.speed += (targetSpeed - paramsRef.current.speed) * 0.04;
-      paramsRef.current.opacity += (targetOpacity - paramsRef.current.opacity) * 0.04;
-      paramsRef.current.falloff += (targetFalloff - paramsRef.current.falloff) * 0.04;
-      paramsRef.current.expansion += (targetExpansion - paramsRef.current.expansion) * 0.04;
+      paramsRef.current.amp += (targetAmp - paramsRef.current.amp) * lerpFactor;
+      paramsRef.current.speed += (targetSpeed - paramsRef.current.speed) * lerpFactor;
+      paramsRef.current.opacity += (targetOpacity - paramsRef.current.opacity) * lerpFactor;
+      paramsRef.current.falloff += (targetFalloff - paramsRef.current.falloff) * lerpFactor;
+      paramsRef.current.expansion += (targetExpansion - paramsRef.current.expansion) * lerpFactor;
 
       const { amp: currentAmp, speed: currentSpeed, opacity: currentOpacity, falloff: currentFalloff, expansion: currentExpansion } = paramsRef.current;
 
@@ -377,10 +433,6 @@ export default function Hero() {
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
 
-  // Animation Phase State: loading -> flushing -> idle
-  type AnimationPhase = 'loading' | 'flushing' | 'idle';
-  const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('loading');
-
   const tier = usePerformanceTier(); // Use our new hook
 
   // Desktop (high) and flagship mobile get BeamBackground with post-processing
@@ -389,17 +441,11 @@ export default function Hero() {
 
   // Splash screen effect - show content after beam fully loads and settles
   useEffect(() => {
-    // Sequence of animation events
-    const flushTimer = setTimeout(() => setAnimationPhase('flushing'), 4000); // Start flushing earlier
-    const idleTimer = setTimeout(() => setAnimationPhase('idle'), 4800); // Settle into idle just before content
-
     const contentTimer = setTimeout(() => {
       setContentVisible(true);
-    }, 5000); // Extended delay for smoother animation loading and immersive splash
+    }, 8000); // Extended delay for longer loading experience
 
     return () => {
-      clearTimeout(flushTimer);
-      clearTimeout(idleTimer);
       clearTimeout(contentTimer);
     };
   }, []);
@@ -437,7 +483,6 @@ export default function Hero() {
         <MemoizedBeamBackground
           isMobile={tier === 'flagship'}
           tier={tier as 'flagship' | 'high'}
-          animationPhase={animationPhase}
         />
       ) : (
         <MobileBeam performanceTier={tier as 'medium' | 'low'} />

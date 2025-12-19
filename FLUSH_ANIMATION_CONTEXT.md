@@ -1,197 +1,97 @@
-# Flush-Out Animation Design Context
+# Flush Animation & Optimization Context
 
-## Project: montjeffrey.dev Portfolio
-## Component: Hero.tsx BeamBackground
+## Overview
+This document outlines the technical implementation, optimization tiers, and state machine logic for the "Flush" animation in the Hero section (`Hero.tsx`) and related performance fixes in the Evervault background (`evervault-background.tsx`).
 
----
+## 1. Animation Logic & State Machine
 
-## Current State
+The Hero effect follows a 3-phase state machine to ensure a smooth loading experience:
 
-The Hero section features a Three.js-based dot grid animation with a circular sine wave pattern that creates a pulsing "beam" effect during page load.
+### Phases
+1.  **Loading** (`loading`)
+    *   **State**: Initial load.
+    *   **Visual**: Standard pulsing beam.
+    *   **Duration**: 0s -> 4s.
+2.  **Flushing** (`flushing`)
+    *   **State**: "Explosion" or rapid expansion outward.
+    *   **Visual**: Dots expand outward (`expansion` -> 4.0), Opacity drops to 0, Speed increases.
+    *   **Trigger**: `setTimeout` at 4000ms.
+    *   **Goal**: Clear the screen for content entry.
+3.  **Idle** (`idle`)
+    *   **State**: Stable, interactive background.
+    *   **Visual**: Returns to standard beam parameters, opacity restored.
+    *   **Trigger**: `setTimeout` at 4800ms.
 
-### Animation Parameters (Hero.tsx lines 206-211)
-```javascript
-const TWO_PI = Math.PI * 2;
-const speed = 0.4;      // Wave propagation speed
-const amp = 0.8;        // Wave amplitude (how much dots expand/contract)
-const freq = 0.25;      // Wave oscillation frequency
-const falloff = 0.04;   // How quickly wave decays with distance from center
-```
+### State Transitions (Lerp)
+All parameters are interpolated using a linear interpolation (Lerp) with a factor of `0.04` per frame for smooth transitions.
 
-### Wave Formula (line 239)
-```javascript
-const k = 1 + Math.sin(TWO_PI * tt * freq) * amp;
-// k is the scale factor applied to each dot's position
-// k oscillates between (1 - amp) and (1 + amp), i.e., 0.2 to 1.8
-```
-
-### Current Timeline
-- **0s - 5s**: Wave animation plays (loading/splash state)
-- **5s**: Content fades in via `contentVisible` state
-- No transition animation between loading and content states
-
----
-
-## Desired Behavior
-
-User Request: "I want the initial loading beam to play into the bloom effect... and have the dots flush out of the beam before transitioning into the current bloom effect."
-
-### Chosen Style: Option A - Expand Outward and Fade
-
-The dots should:
-1. **Accelerate outward** - amplitude increases dramatically
-2. **Fade out** - opacity decreases as dots expand
-3. **Settle into idle** - calm background state for content viewing
-
----
-
-## Technical Implementation Hooks
-
-### Animation Phase State Machine
-
-Add to Hero.tsx:
 ```typescript
-type AnimationPhase = 'loading' | 'flushing' | 'idle';
-const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('loading');
-```
-
-### Phase Timing (Suggested)
-- `loading`: 0s - 4.5s (current wave animation)
-- `flushing`: 4.5s - 5s (500ms transition)
-- `idle`: 5s+ (calm background, content visible)
-
-### Flush Animation Parameters to Design
-
-| Parameter | Loading Value | Flush Target | Notes |
-|-----------|---------------|--------------|-------|
-| `amp` | 0.8 | 2.0 - 3.0 | How far dots expand outward |
-| `speed` | 0.4 | 1.0 - 2.0 | How fast the flush happens |
-| `material.opacity` | 0.85 | 0.0 - 0.3 | Fade out during flush |
-| `falloff` | 0.04 | 0.02 - 0.01 | Wave reaches edges faster |
-
-### Idle State Options
-
-After flush completes, the grid can either:
-1. **Fully hidden** - opacity = 0, animation stops
-2. **Subtle ambient** - very low amplitude (0.1), slow movement
-3. **Static grid** - no animation, just faint dots as texture
-
----
-
-## Code Location for Implementation
-
-### File: `components/Hero.tsx`
-
-**Add phase state** near line 313:
-```typescript
-const [animationPhase, setAnimationPhase] = useState<AnimationPhase>('loading');
-```
-
-**Add phase timers** near line 322-327:
-```typescript
-useEffect(() => {
-  const flushTimer = setTimeout(() => setAnimationPhase('flushing'), 4500);
-  const idleTimer = setTimeout(() => setAnimationPhase('idle'), 5000);
-  return () => {
-    clearTimeout(flushTimer);
-    clearTimeout(idleTimer);
-  };
-}, []);
-```
-
-**Modify animate() function** (lines 213-251):
-- Pass `animationPhase` into the animation logic
-- Interpolate parameters based on phase
-- Use `THREE.MathUtils.lerp()` for smooth transitions
-
-### Example Flush Logic
-```typescript
-function animate() {
-  // ... existing frame throttling ...
-
-  const t = clock.getElapsedTime();
-
-  let currentAmp = amp;
-  let currentSpeed = speed;
-  let currentOpacity = 0.85;
-
-  if (animationPhase === 'flushing') {
-    // Calculate flush progress (0 to 1 over 500ms)
-    const flushProgress = Math.min(1, (t - flushStartTime) / 0.5);
-
-    // Ease out for dramatic effect
-    const eased = 1 - Math.pow(1 - flushProgress, 3);
-
-    currentAmp = THREE.MathUtils.lerp(0.8, 2.5, eased);
-    currentSpeed = THREE.MathUtils.lerp(0.4, 1.5, eased);
-    currentOpacity = THREE.MathUtils.lerp(0.85, 0.2, eased);
-
-    material.opacity = currentOpacity;
-  } else if (animationPhase === 'idle') {
-    // Calm state - very subtle or no animation
-    currentAmp = 0.1;
-    currentOpacity = 0.3;
-    material.opacity = currentOpacity;
-  }
-
-  // ... rest of animation loop using currentAmp, currentSpeed ...
+// Target values based on phase
+if (animationPhase === 'flushing') {
+  targetAmp = 3.5;       // High wave activity
+  targetSpeed = 1.2;     // Fast movement
+  targetOpacity = 0.0;   // Fade out
+  targetExpansion = 4.0; // PUSH OUTWARD
+} else if (animationPhase === 'idle') {
+  targetAmp = 0.8;
+  targetSpeed = 0.4;
+  targetOpacity = tier === 'flagship' ? 0.85 : 1.0;
+  targetExpansion = 0;
 }
 ```
 
----
+## 2. Optimization Tiers (Mobile vs Desktop)
 
-## Visual Reference
+We use a tiered system (`usePerformanceTier`) to adapt quality settings.
 
-### Loading Phase (0-4.5s)
-```
-     · · · · ·
-   ·   ·   ·   ·
-  · · ·[PULSE]· · ·   <- Dots expand/contract in waves from center
-   ·   ·   ·   ·
-     · · · · ·
-```
+### Tier 1 Optimizations (General)
+*   **Hoisted Allocations**: `Matrix4` and `Vector3` created once outside the render loop.
+*   **Pre-computed Constants**: `TWO_PI`, `speed`, `amp`, etc., calculated ahead of time.
+*   **Throttling**: Scroll listeners and IntersectionObservers are throttled/granularized.
 
-### Flushing Phase (4.5-5s)
-```
-  ·       ·       ·
-    ·           ·
-·       [BURST]       ·   <- Dots rapidly expand outward, fading
-    ·           ·
-  ·       ·       ·
-```
+### Tier 2 Optimizations (Flagship Mobile)
+Implemented in `TIER_CONFIG` for `flagship` tier:
+*   **Resolution**: `pixelRatio` capped at **1.0** (down from 1.5/2.0).
+*   **Geometry**: Segments reduced from 4 to **3** (triangular dots), which look consistent with bloom.
+*   **Precision**: forced to `'mediump'` for fragment shaders.
+*   **Buffer Access**: Bypassed `setMatrixAt` overhead by writing directly to `instanceMatrix.array` (Float32Array).
+*   **Bloom**: Reduced resolution/strength for mobile.
 
-### Idle Phase (5s+)
-```
-  ·   ·   ·   ·   ·
-  ·   ·   ·   ·   ·
-  ·   ·   ·   ·   ·       <- Calm grid, very subtle or no movement
-  ·   ·   ·   ·   ·
-  ·   ·   ·   ·   ·
+### Code Hook: Direct Buffer Manipulation
+```typescript
+// Faster than setMatrixAt(i, matrix)
+const offset = i * 16;
+matrixArray[offset + 12] = px; // Update X translation
+matrixArray[offset + 13] = py; // Update Y translation
+dots.instanceMatrix.needsUpdate = true;
 ```
 
----
+## 3. Component Context
 
-## Design Decisions Needed
+### `Hero.tsx`
+*   **`BeamBackground`**: The main WebGL implementation using Three.js.
+*   **`MobileBeam`**: A fallback/simpler component for lower tiers (Medium/Low).
+*   **Logic**: Handles the flush timer and state transitions.
 
-1. **Flush Duration**: 500ms? 750ms? 1s?
-2. **Easing Curve**: Linear, ease-out, elastic, or custom?
-3. **Final Amplitude**: Should idle state have any movement?
-4. **Final Opacity**: How visible should the grid be behind content?
-5. **Bloom Interaction**: Should bloom intensity change during flush?
-6. **Sound/Haptics**: Any audio or haptic feedback? (optional)
+### `evervault-background.tsx`
+*   **Fixes**:
+    *   Granular `IntersectionObserver` thresholds `[0, 0.1, 0.5, 0.9, 1]` for better visibility tracking.
+    *   Throttled scroll listener to update bounds references without layout thrashing.
 
----
+## 4. Visual Diagrams
 
-## Files of Interest
+**Loading via Flush Sequence:**
+```ascii
+[ Loading ]  -->  [ Flushing ]  -->  [ Idle ]
+(Pulse)           (Explode Out)      (Calm)
+   *                 *     *            *
+  ***               *       *          ***
+   *               *         *          *
+Time: 0s           4.0s              4.8s
+Opacity: 1.0       0.0               0.85 (Fade In)
+Expansion: 0       4.0               0.0
+```
 
-- `components/Hero.tsx` - Main implementation
-- `components/hero/MobileBeam.tsx` - May need parallel implementation for consistency
-- `hooks/use-performance-tier.ts` - Tier detection (affects which component renders)
-
----
-
-## Performance Considerations
-
-- Flush animation is brief (500ms) so performance impact is minimal
-- Avoid creating new objects during flush (already optimized)
-- Consider skipping flush on low-tier devices (use MobileBeam's simpler fade)
+## 5. Next Steps
+*   Monitor FPS on older Android devices (non-flagship) to see if 'medium' tier needs adjustments.
+*   Responsiveness tuning: Ensure the `expansion` parameter scales correctly with screen aspect ratio (currently hardcoded logic).
