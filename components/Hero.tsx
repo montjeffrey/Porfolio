@@ -174,8 +174,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
         basePos[idx * 2 + 1] = y;
         const len = Math.hypot(x, y);
         const ang = Math.atan2(y, x);
-        const oct = 0.5 * Math.cos(ang * 8.0);
-        distArr[idx] = len + oct * 0.75;
+        distArr[idx] = len;
         dummy.position.set(x, y, 0);
         dummy.updateMatrix();
         dots.setMatrixAt(idx, dummy.matrix);
@@ -193,9 +192,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     // Start progressive loading
     loadDotsChunk();
 
-    function roundedSquareWave(t: number, delta: number, a: number, f: number) {
-      return ((2 * a) / Math.PI) * Math.atan(Math.sin(2 * Math.PI * t * f) / delta);
-    }
+
 
     const clock = new THREE.Clock();
     let animationFrameId: number;
@@ -237,7 +234,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
         const dist = distArr[i];
         const localDelta = THREE.MathUtils.lerp(0.05, 0.2, Math.min(1.0, dist / 70.0));
         const tt = t * speed - dist * falloff;
-        const k = 1 + roundedSquareWave(tt, localDelta, amp, freq);
+        const k = 1 + Math.sin(2 * Math.PI * tt * freq) * amp;
         pos.set(x0 * k, y0 * k, 0);
         mat.set(1, 0, 0, pos.x, 0, 1, 0, pos.y, 0, 0, 1, 0, 0, 0, 0, 1);
         dots.setMatrixAt(i, mat);
@@ -321,11 +318,11 @@ export default function Hero() {
   // Medium/Low tier gets shader-based MobileBeam
   const showHeavyBeam = tier === 'high' || tier === 'flagship';
 
-  // Splash screen effect - show content after beam initializes
+  // Splash screen effect - show content after beam fully loads and settles
   useEffect(() => {
     const timer = setTimeout(() => {
       setContentVisible(true);
-    }, 1200); // Delay content appearance for immersive splash effect
+    }, 5000); // Extended delay for smoother animation loading and immersive splash
     return () => clearTimeout(timer);
   }, []);
 
