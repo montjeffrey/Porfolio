@@ -5,6 +5,18 @@ interface MobileBeamProps {
     performanceTier: 'medium' | 'low';
 }
 
+/**
+ * MobileBeam - Optimized for Mobile Performance
+ * 
+ * Key Optimizations:
+ * 1. Precision: Uses 'mediump' instead of 'lowp' to eliminate vertex jitter/swimming while keeping shader cost low.
+ * 2. Pre-calculation: Move expensive math (distance, randomness) from Vertex Shader to CPU (Attributes).
+ * 3. NO DISCARD: Replaced `discard` in fragment shader with `smoothstep` alpha blending. 
+ *    `discard` kills Early-Z performance on tile-based mobile GPUs.
+ * 4. Textureless Glow: Procedural soft dots using distance fields, avoiding texture lookups.
+ * 5. Reduced Draw Calls: Single Point Cloud draw call.
+ * 6. Batching: All uniforms and attributes are efficient.
+ */
 export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -12,105 +24,113 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
         if (!containerRef.current) return;
         const container = containerRef.current;
 
-        // Use lower precision for mobile to save shader ops
+        // --- Renderer Setup ---
+        // 'mediump' is the sweet spot. 'lowp' causes visible jitter in position calculations.
         const renderer = new THREE.WebGLRenderer({
             antialias: false,
-            alpha: false,
+            alpha: true, // Allow transparency composition with background
             powerPreference: 'high-performance',
-            precision: 'lowp', // Switch to lowp for maximum speed
+            precision: 'mediump',
         });
 
-        // Cap pixel ratio at 1.0 for all mobile tiers to ensure consistent performance
+        // Strict pixel ratio cap. 
+        // 1.0 is sufficient for this effect on mobile and saves massive fill-rate.
         const pixelRatio = Math.min(window.devicePixelRatio, 1.0);
         renderer.setPixelRatio(pixelRatio);
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setClearColor(0x0d0d0d, 1);
+        renderer.setClearColor(0x000000, 0); // Transparent clear
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        const camera = new THREE.OrthographicCamera();
-        camera.position.z = 1;
+        // Orthographic Camera allows us to work in "screen space" units easily
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+        camera.position.z = 10;
 
         // --- Configuration ---
-        // Aggressively reduced counts for mobile
-        // Previous: 60x60 (3600) / 40x40 (1600)
-        // New: 40x40 (1600) / 30x30 (900)
+        // Balanced density for visual impact vs performance
+        // Medium: 1600 dots (40x40) vs Low: 900 dots (30x30)
+        // This is extremely light for even 5-year-old phones if shaders are clean.
         const cols = performanceTier === 'medium' ? 40 : 30;
         const rows = performanceTier === 'medium' ? 40 : 30;
-        const spacing = 0.8; // Increased spacing since we have fewer dots
+        const spacing = 0.8;
         const dotCount = cols * rows;
 
-        // --- Shader Logic ---
-        // Vertex Shader: Handles wave animation on GPU
+        // --- Shader Optimizations ---
+
         const vertexShader = `
-      uniform float uTime;
-      attribute vec3 aBasePos;
-      
-      varying float vIntensity;
-      varying vec2 vUv;
+            precision mediump float;
+            
+            uniform float uTime;
+            
+            attribute vec3 position;
+            attribute float aDist;   // Pre-calculated distance from center
+            attribute float aRandom; // Pre-calculated variation
+            
+            varying float vAlpha;
+            
+            void main() {
+                // Wave Logic
+                // We use the pre-calculated aDist to offset the wave phase.
+                // Simplified Sin wave for motion. Creates the "pulsing" beam effect.
+                
+                float t = uTime * 0.4 - aDist * 0.08;
+                float wave = sin(t * 6.28); 
+                
+                // Add subtle random movement based on pre-calculated random value
+                float randomOffset = sin(uTime + aRandom * 10.0) * 0.02;
+                
+                // Expansion/Contraction
+                // k defines how far the point moves from its original position
+                float k = 1.0 + wave * 0.15 + randomOffset;
+                
+                vec3 newPos = position;
+                newPos.x *= k;
+                newPos.y *= k;
 
-      // Simplified wave logic - reduced trig operations
-      // Replaced potentially expensive atan math with simpler sin/cos approximation
-      
-      void main() {
-        vUv = uv;
-        
-        vec3 pos = aBasePos;
-        
-        // Calculate wave parameters based on position/distance from center
-        float dist = length(pos.xy);
-        
-        // Optimize: Pre-calculate constants in JS if possible, but for dynamic wave:
-        float t = uTime * 0.4 - dist * 0.05;
-        
-        // Simplified ripple: just a sin wave, cheaper than the "rounded square" atan formula
-        // This looks 95% similar but runs faster
-        float wave = sin(t * 6.28); 
-        float k = 1.0 + wave * 0.15; // Subtle distortion
-        
-        // Apply position update
-        vec3 finalPos = pos * k;
-        
-        // Pass intensity to fragment
-        vIntensity = 0.5 + wave * 0.5;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+                
+                // Point Size Management
+                // Scale point size inversely with depth (optional, but good for 3D feel in 2D)
+                // We keep it uniform here for the "grid" look
+                gl_PointSize = ${performanceTier === 'medium' ? '24.0' : '18.0'}; 
+                
+                // Pass intensity/alpha to fragment
+                // Dots in the "trough" of the wave are dimmer
+                vAlpha = 0.4 + wave * 0.4;
+            }
+        `;
 
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(finalPos, 1.0);
-        
-        // Size attenuation
-        gl_PointSize = ${performanceTier === 'medium' ? '24.0' : '20.0'}; 
-      }
-    `;
-
-        // Fragment Shader: Handles "Fake Bloom" glow
         const fragmentShader = `
-      precision lowp float; // Enforce low precision
-      uniform vec3 uColor;
-      varying float vIntensity;
+            precision mediump float;
+            
+            uniform vec3 uColor;
+            varying float vAlpha;
+            
+            void main() {
+                // Circular Glow Calculation
+                // gl_PointCoord goes from (0,0) to (1,1)
+                vec2 center = 2.0 * gl_PointCoord - 1.0; // Map to (-1, -1) to (1, 1)
+                float distSq = dot(center, center);
+                
+                // OPTIMIZATION: Soft edge feathering without 'discard'.
+                // smoothstep(edge0, edge1, x) returns 0.0 if x >= edge1
+                // This means pixels outside the circle become transparent naturally.
+                // No branching (if/discard) = Faster on Mobile.
+                float circle = 1.0 - smoothstep(0.5, 1.0, distSq);
+                
+                // Apply color and calculated alpha
+                gl_FragColor = vec4(uColor, circle * vAlpha);
+            }
+        `;
 
-      void main() {
-        // Simple radial distance
-        vec2 center = 2.0 * gl_PointCoord - 1.0;
-        float distSq = dot(center, center);
-        
-        if (distSq > 1.0) discard;
-        
-        // Simplified glow falloff: Linear instead of pow(x, 2.0)
-        // Cheaper and looks slightly softer (more "bloomy")
-        float glow = 1.0 - distSq;
-        
-        // Boost brightness at center
-        glow = glow * (0.6 + vIntensity * 0.4);
-        
-        gl_FragColor = vec4(uColor, glow);
-      }
-    `;
-
-        // --- Geometry Construction ---
+        // --- Geometry & Attribute Buffers ---
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(dotCount * 3);
-        const basePos = new Float32Array(dotCount * 3);
+        const distances = new Float32Array(dotCount);
+        const randoms = new Float32Array(dotCount);
 
         let i = 0;
+        let dI = 0;
         const xOffset = (cols - 1) * spacing * 0.5;
         const yOffset = (rows - 1) * spacing * 0.5;
 
@@ -119,29 +139,37 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
                 let x = c * spacing - xOffset;
                 let y = r * spacing - yOffset;
 
-                // Hex offset
+                // Hexagonal Shift
                 if (c % 2 === 1) {
                     y += spacing * 0.5;
                 }
 
-                // Jitter
-                x += (Math.random() - 0.5) * 0.25;
-                y += (Math.random() - 0.5) * 0.25;
+                // Initial Jitter (Static)
+                // We add this to the base position so the grid isn't perfectly rigid
+                const jitter = 0.25;
+                x += (Math.random() - 0.5) * jitter;
+                y += (Math.random() - 0.5) * jitter;
 
+                // Position
                 positions[i] = x;
                 positions[i + 1] = y;
                 positions[i + 2] = 0;
 
-                basePos[i] = x;
-                basePos[i + 1] = y;
-                basePos[i + 2] = 0;
+                // Pre-calculate Attributes
+                // 1. Distance for wave phase (saves sqrt() in shader)
+                distances[dI] = Math.sqrt(x * x + y * y);
+
+                // 2. Random value for variety
+                randoms[dI] = Math.random();
 
                 i += 3;
+                dI++;
             }
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('aBasePos', new THREE.BufferAttribute(basePos, 3));
+        geometry.setAttribute('aDist', new THREE.BufferAttribute(distances, 1));
+        geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
 
         // --- Material ---
         const material = new THREE.ShaderMaterial({
@@ -152,21 +180,22 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
             vertexShader,
             fragmentShader,
             transparent: true,
-            blending: THREE.AdditiveBlending, // Key for glowing look
-            depthWrite: false,
+            blending: THREE.AdditiveBlending, // Key for the "beam" light look
+            depthWrite: false, // No Z-buffer writing needed for additive particles
+            depthTest: false   // Disable depth test to save checks (optional, safe here because 2D layer)
         });
 
         const points = new THREE.Points(geometry, material);
         scene.add(points);
 
-        // --- Resizing ---
+        // --- Resize Logic ---
         const handleResize = () => {
             if (!container) return;
             const w = container.clientWidth;
             const h = container.clientHeight;
             const aspect = w / h;
 
-            // Orthographic camera sizing to match desktop logic roughly
+            // Maintain consistent visual scale regardless of aspect ratio
             const worldHeight = 10;
             const worldWidth = worldHeight * aspect;
 
@@ -189,16 +218,25 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
 
         const animate = () => {
             frameId = requestAnimationFrame(animate);
-            material.uniforms.uTime.value = clock.getElapsedTime();
+
+            // Update time uniform
+            // We use simple elapsed time. For very long running tabs, 
+            // one might want to mod this, but float precision in JS is fine for days.
+            const elapsed = clock.getElapsedTime();
+            material.uniforms.uTime.value = elapsed;
+
             renderer.render(scene, camera);
         };
 
         animate();
 
+        // --- Cleanup ---
         return () => {
             resizeObserver.disconnect();
             cancelAnimationFrame(frameId);
-            container.removeChild(renderer.domElement);
+            if (container.contains(renderer.domElement)) {
+                container.removeChild(renderer.domElement);
+            }
             geometry.dispose();
             material.dispose();
             renderer.dispose();
