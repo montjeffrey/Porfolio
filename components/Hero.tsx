@@ -28,8 +28,9 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     amp: 0,              // Start with no wave (grow into it)
     speed: 0.4,
     opacity: 0,          // Start invisible (fade in)
-    falloff: 0.005,      // Start with "bloom" wide wave (transition to tight rings)
-    expansion: -1.1,     // Start collapsed at center (k ~= 0) - "Explode" outward
+    falloff: 0.005,      // Start with "bloom" wide wave
+    expansion: -1.1,     // Start collapsed at center
+    bloomStrength: 0,    // Track bloom intensity dynamically
   });
 
   // Lazy initialization - only render when component is visible
@@ -98,6 +99,9 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     };
 
     const config = TIER_CONFIG[tier];
+
+    // Initialize bloom strength target based on tier
+    paramsRef.current.bloomStrength = config.bloom.strength;
 
     // Setup Post-Processing with tiered settings
     let composer: EffectComposer | null = null;
@@ -215,11 +219,10 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     const TWO_PI = Math.PI * 2;
     const freq = 0.25;
     const smoothing = 2.5;
-    const anticipationStartSeconds = 4.0;
-    const anticipationDurationSeconds = 1.0; // 1s gather
-    const flushStartSeconds = anticipationStartSeconds + anticipationDurationSeconds;
-    const flushDurationSeconds = 1.5; // 1.5s explosion
-    const idleBlendSeconds = 1.0;
+    const flushStartSeconds = 4.0; // Start anticipation earlier
+    const anticipationDuration = 1.0;
+    const burstDuration = 0.8;
+    const idleBlendSeconds = 1.5;
 
     const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
     const smoothstep = (edge0: number, edge1: number, x: number) => {
@@ -232,24 +235,28 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       speed: 0.25,
       opacity: tier === 'flagship' ? 0.6 : 0.75,
       falloff: 0.02,
-      expansion: -0.2
+      expansion: -0.2,
+      bloomStrength: config.bloom.strength
     };
 
-    // New "Gather" phase - pulls back the spring
+    // Phase 1: Anticipation (Gather & Dim) through tighter contraction
     const anticipationTargets = {
-      amp: 0.1,          // Tighten the wave
-      speed: 2.0,        // High energy/vibration
-      opacity: 1.0,      // Max brightness
-      falloff: 0.15,     // Very narrow beam
-      expansion: -1.5    // Pull INWARD strongly
+      amp: 0.2,           // Calm before storm
+      speed: 1.5,         // Speed up significantly
+      opacity: 1.0,       // Full visibility
+      falloff: 0.03,      // Tighter beam
+      expansion: -0.8,    // Pull INWARD strongly (Gather)
+      bloomStrength: config.bloom.strength * 0.5 // Dim slightly
     };
 
-    const flushTargets = {
-      amp: 3.5,
-      speed: 1.2,
-      opacity: tier === 'flagship' ? 0.16 : 0.2, // Fade out during explosion
-      falloff: 0.01,
-      expansion: 4.0     // Explode OUTWARD
+    // Phase 2: Bloom Burst (Explosion)
+    const burstTargets = {
+      amp: 2.5,
+      speed: 0.1,         // Slow motion explosion look
+      opacity: 1.0,
+      falloff: 0.01,      // Wide beam
+      expansion: 1.5,     // Expand outward (but not offscreen)
+      bloomStrength: config.bloom.strength * 3.0 // FLASH!
     };
 
     const idleTargets = {
@@ -257,7 +264,8 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       speed: 0.4,
       opacity: tier === 'flagship' ? 0.85 : 1.0,
       falloff: 0.04,
-      expansion: 0
+      expansion: 0,
+      bloomStrength: config.bloom.strength
     };
 
     function animate() {
@@ -280,39 +288,51 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
 
       // --- TRANSITION LOGIC ---
       // 1. Loading -> Anticipation
-      const anticipationBlend = smoothstep(anticipationStartSeconds, anticipationStartSeconds + anticipationDurationSeconds, elapsedSeconds);
+      const anticipationStart = flushStartSeconds;
+      const anticipationEnd = anticipationStart + anticipationDuration;
 
-      // 2. Anticipation -> Flush
-      const flushEnd = flushStartSeconds + flushDurationSeconds;
-      const flushBlend = smoothstep(flushStartSeconds, flushEnd, elapsedSeconds);
+      // 2. Anticipation -> Burst
+      const burstStart = anticipationEnd;
+      const burstEnd = burstStart + burstDuration;
 
-      // 3. Flush -> Idle
-      const idleStart = flushEnd;
-      const idleEnd = flushEnd + idleBlendSeconds;
+      // 3. Burst -> Idle
+      const idleStart = burstEnd;
+      const idleEnd = idleStart + idleBlendSeconds;
+
+      const antiBlend = smoothstep(anticipationStart, anticipationEnd, elapsedSeconds);
+      const burstBlend = smoothstep(burstStart, burstEnd, elapsedSeconds);
       const idleBlend = smoothstep(idleStart, idleEnd, elapsedSeconds);
 
-      // Multi-stage Lerp Helper
-      const getMultiStageTarget = (prop: keyof typeof loadingTargets) => {
-        // Stage 1: Load -> Anticipate
-        let val = THREE.MathUtils.lerp(loadingTargets[prop], anticipationTargets[prop], anticipationBlend);
+      // Multi-stage Lerp chain
+      // Current Target = Lerp(PreviousTarget, NextTarget, BlendFactor)
 
-        // Stage 2: -> Flush (Override if in flush phase)
-        if (elapsedSeconds > flushStartSeconds) {
-          val = THREE.MathUtils.lerp(anticipationTargets[prop], flushTargets[prop], flushBlend);
-        }
+      // Stage 1: Loading -> Anticipation
+      let targetAmp = THREE.MathUtils.lerp(loadingTargets.amp, anticipationTargets.amp, antiBlend);
+      let targetSpeed = THREE.MathUtils.lerp(loadingTargets.speed, anticipationTargets.speed, antiBlend);
+      let targetOpacity = THREE.MathUtils.lerp(loadingTargets.opacity, anticipationTargets.opacity, antiBlend);
+      let targetFalloff = THREE.MathUtils.lerp(loadingTargets.falloff, anticipationTargets.falloff, antiBlend);
+      let targetExpansion = THREE.MathUtils.lerp(loadingTargets.expansion, anticipationTargets.expansion, antiBlend);
+      let targetBloomStr = THREE.MathUtils.lerp(loadingTargets.bloomStrength, anticipationTargets.bloomStrength, antiBlend);
 
-        // Stage 3: -> Idle (Override if in idle phase)
-        if (elapsedSeconds > flushEnd) {
-          val = THREE.MathUtils.lerp(flushTargets[prop], idleTargets[prop], idleBlend);
-        }
-        return val;
-      };
+      // Stage 2: -> Burst (Overwrites Stage 1 as flow progresses)
+      if (elapsedSeconds > anticipationStart) {
+        targetAmp = THREE.MathUtils.lerp(targetAmp, burstTargets.amp, burstBlend);
+        targetSpeed = THREE.MathUtils.lerp(targetSpeed, burstTargets.speed, burstBlend);
+        targetOpacity = THREE.MathUtils.lerp(targetOpacity, burstTargets.opacity, burstBlend);
+        targetFalloff = THREE.MathUtils.lerp(targetFalloff, burstTargets.falloff, burstBlend);
+        targetExpansion = THREE.MathUtils.lerp(targetExpansion, burstTargets.expansion, burstBlend);
+        targetBloomStr = THREE.MathUtils.lerp(targetBloomStr, burstTargets.bloomStrength, burstBlend);
+      }
 
-      const targetAmp = getMultiStageTarget('amp');
-      const targetSpeed = getMultiStageTarget('speed');
-      const targetOpacity = getMultiStageTarget('opacity');
-      const targetFalloff = getMultiStageTarget('falloff');
-      const targetExpansion = getMultiStageTarget('expansion');
+      // Stage 3: -> Idle
+      if (elapsedSeconds > burstStart) {
+        targetAmp = THREE.MathUtils.lerp(targetAmp, idleTargets.amp, idleBlend);
+        targetSpeed = THREE.MathUtils.lerp(targetSpeed, idleTargets.speed, idleBlend);
+        targetOpacity = THREE.MathUtils.lerp(targetOpacity, idleTargets.opacity, idleBlend);
+        targetFalloff = THREE.MathUtils.lerp(targetFalloff, idleTargets.falloff, idleBlend);
+        targetExpansion = THREE.MathUtils.lerp(targetExpansion, idleTargets.expansion, idleBlend);
+        targetBloomStr = THREE.MathUtils.lerp(targetBloomStr, idleTargets.bloomStrength, idleBlend);
+      }
 
       // Smoothly interpolate current values towards targets (Lerp)
       // Factor 0.04 gives a nice ease-out feel
@@ -320,9 +340,15 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       paramsRef.current.speed += (targetSpeed - paramsRef.current.speed) * lerpFactor;
       paramsRef.current.opacity += (targetOpacity - paramsRef.current.opacity) * lerpFactor;
       paramsRef.current.falloff += (targetFalloff - paramsRef.current.falloff) * lerpFactor;
+      paramsRef.current.bloomStrength += (targetBloomStr - paramsRef.current.bloomStrength) * lerpFactor;
       paramsRef.current.expansion += (targetExpansion - paramsRef.current.expansion) * lerpFactor;
 
-      const { amp: currentAmp, speed: currentSpeed, opacity: currentOpacity, falloff: currentFalloff, expansion: currentExpansion } = paramsRef.current;
+      const { amp: currentAmp, speed: currentSpeed, opacity: currentOpacity, falloff: currentFalloff, expansion: currentExpansion, bloomStrength: currentBloomStrength } = paramsRef.current;
+
+      // Update Bloom Strength dynamically
+      if (bloom) {
+        bloom.strength = currentBloomStrength;
+      }
 
       // Update material opacity
       material.opacity = currentOpacity;
