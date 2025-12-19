@@ -1,246 +1,191 @@
-import React, { useRef, useEffect } from 'react';
-import * as THREE from 'three';
+"use client";
+import React, { useEffect, useRef } from 'react';
+import clsx from 'clsx';
 
 interface MobileBeamProps {
     performanceTier: 'medium' | 'low';
 }
 
 /**
- * MobileBeam - Optimized for Mobile Performance
- * 
- * Key Optimizations:
- * 1. Precision: Uses 'mediump' instead of 'lowp' to eliminate vertex jitter/swimming while keeping shader cost low.
- * 2. Pre-calculation: Move expensive math (distance, randomness) from Vertex Shader to CPU (Attributes).
- * 3. NO DISCARD: Replaced `discard` in fragment shader with `smoothstep` alpha blending. 
- *    `discard` kills Early-Z performance on tile-based mobile GPUs.
- * 4. Textureless Glow: Procedural soft dots using distance fields, avoiding texture lookups.
- * 5. Reduced Draw Calls: Single Point Cloud draw call.
- * 6. Batching: All uniforms and attributes are efficient.
+ * MobileBeam — CSS/WAAPI beam tuned for mobile
+ *
+ * Why this refactor:
+ * - Removes WebGL/Three.js from mobile entirely to avoid GPU driver overhead and fill‑rate costs.
+ * - Uses transform‑only animations (translate/rotate) which stay on the compositor thread for smoothness.
+ * - Minimizes JavaScript per frame: WAAPI handles interpolation; we only pause/resume and do light housekeeping.
  */
 export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const beamRef = useRef<HTMLDivElement>(null);
+    const glowRef = useRef<HTMLDivElement>(null);
+    const animationRef = useRef<Animation | null>(null);
+    const observerRef = useRef<IntersectionObserver | null>(null);
 
     useEffect(() => {
-        if (!containerRef.current) return;
         const container = containerRef.current;
+        const beam = beamRef.current;
 
-        // --- Renderer Setup ---
-        // 'mediump' is the sweet spot. 'lowp' causes visible jitter in position calculations.
-        const renderer = new THREE.WebGLRenderer({
-            antialias: false,
-            alpha: false, // Reverted to FALSE to ensure visibility against CSS background
-            powerPreference: 'high-performance',
-            precision: 'mediump',
-        });
+        if (!container || !beam) return;
 
-        // Strict pixel ratio cap. 
-        // 1.0 is sufficient for this effect on mobile and saves massive fill-rate.
-        const pixelRatio = Math.min(window.devicePixelRatio, 1.0);
-        renderer.setPixelRatio(pixelRatio);
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setClearColor(0x0d0d0d, 1); // Explicitly set background color to match design
-        container.appendChild(renderer.domElement);
+        // Respect reduced motion preferences — disable animation entirely.
+        const reducedMotion =
+            typeof window !== 'undefined' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        const scene = new THREE.Scene();
-        // Orthographic Camera allows us to work in "screen space" units easily
-        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
-        camera.position.z = 10;
+        // Ensure the compositor can plan ahead: transforms and opacity only.
+        beam.style.willChange = 'transform, opacity';
+        if (glowRef.current) glowRef.current.style.willChange = 'transform, opacity';
 
-        // --- Configuration ---
-        // Balanced density for visual impact vs performance
-        // Medium: 1600 dots (40x40) vs Low: 900 dots (30x30)
-        // This is extremely light for even 5-year-old phones if shaders are clean.
-        const cols = performanceTier === 'medium' ? 40 : 30;
-        const rows = performanceTier === 'medium' ? 40 : 30;
-        const spacing = 0.8;
-        const dotCount = cols * rows;
+        // Hardware acceleration hint: allocate a layer and avoid main-thread layout.
+        beam.style.transform = 'translate3d(0,0,0)';
+        if (glowRef.current) glowRef.current.style.transform = 'translate3d(0,0,0)';
 
-        // --- Shader Optimizations ---
-        // Removed explicit 'precision' line to let Three.js handle it from renderer config
+        // Create a transform-only WAAPI animation (no JS per frame updates).
+        // Keyframes intentionally simple to keep the compositor happy on mid-range phones.
+        const durationMs = performanceTier === 'medium' ? 7000 : 9000; // slightly slower for low tier
+        const wobble = performanceTier === 'medium' ? 6 : 4; // degrees of rotation
 
-        const vertexShader = `
-            uniform float uTime;
-            
-            attribute vec3 position;
-            attribute float aDist;   // Pre-calculated distance from center
-            attribute float aRandom; // Pre-calculated variation
-            
-            varying float vAlpha;
-            
-            void main() {
-                // Wave Logic
-                // We use the pre-calculated aDist to offset the wave phase.
-                // Simplified Sin wave for motion. Creates the "pulsing" beam effect.
-                
-                float t = uTime * 0.4 - aDist * 0.08;
-                float wave = sin(t * 6.28); 
-                
-                // Add subtle random movement based on pre-calculated random value
-                float randomOffset = sin(uTime + aRandom * 10.0) * 0.02;
-                
-                // Expansion/Contraction
-                // k defines how far the point moves from its original position
-                float k = 1.0 + wave * 0.15 + randomOffset;
-                
-                vec3 newPos = position;
-                newPos.x *= k;
-                newPos.y *= k;
-
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
-                
-                // Point Size Management
-                // Scale point size inversely with depth (optional, but good for 3D feel in 2D)
-                // We keep it uniform here for the "grid" look
-                gl_PointSize = ${performanceTier === 'medium' ? '24.0' : '18.0'}; 
-                
-                // Pass intensity/alpha to fragment
-                // Dots in the "trough" of the wave are dimmer
-                vAlpha = 0.4 + wave * 0.4;
-            }
-        `;
-
-        const fragmentShader = `
-            uniform vec3 uColor;
-            varying float vAlpha;
-            
-            void main() {
-                // Circular Glow Calculation
-                // gl_PointCoord goes from (0,0) to (1,1)
-                vec2 center = 2.0 * gl_PointCoord - 1.0; // Map to (-1, -1) to (1, 1)
-                float distSq = dot(center, center);
-                
-                // OPTIMIZATION: Soft edge feathering without 'discard'.
-                // smoothstep(edge0, edge1, x) returns 0.0 if x >= edge1
-                // This means pixels outside the circle become transparent naturally.
-                // No branching (if/discard) = Faster on Mobile.
-                float circle = 1.0 - smoothstep(0.5, 1.0, distSq);
-                
-                // Apply color and calculated alpha
-                gl_FragColor = vec4(uColor, circle * vAlpha);
-            }
-        `;
-
-        // --- Geometry & Attribute Buffers ---
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(dotCount * 3);
-        const distances = new Float32Array(dotCount);
-        const randoms = new Float32Array(dotCount);
-
-        let i = 0;
-        let dI = 0;
-        const xOffset = (cols - 1) * spacing * 0.5;
-        const yOffset = (rows - 1) * spacing * 0.5;
-
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                let x = c * spacing - xOffset;
-                let y = r * spacing - yOffset;
-
-                // Hexagonal Shift
-                if (c % 2 === 1) {
-                    y += spacing * 0.5;
+        if (!reducedMotion) {
+            const anim = beam.animate(
+                [
+                    { transform: 'translate3d(-60%, -50%, 0) rotate(-' + wobble + 'deg)', opacity: 0.65 },
+                    { transform: 'translate3d(0%, -50%, 0) rotate(0deg)', opacity: 0.85 },
+                    { transform: 'translate3d(60%, -50%, 0) rotate(' + wobble + 'deg)', opacity: 0.65 },
+                ],
+                {
+                    duration: durationMs,
+                    iterations: Infinity,
+                    easing: 'linear', // compositor-friendly
                 }
+            );
+            animationRef.current = anim;
 
-                // Initial Jitter (Static)
-                // We add this to the base position so the grid isn't perfectly rigid
-                const jitter = 0.25;
-                x += (Math.random() - 0.5) * jitter;
-                y += (Math.random() - 0.5) * jitter;
+            // Battery-aware throttling: after ~12s, reduce playback rate
+            const slowDownTimer = window.setTimeout(() => {
+                try {
+                    // Reduce energy while keeping motion alive
+                    anim.updatePlaybackRate(0.6);
+                } catch (_) {
+                    // Some browsers may not support updatePlaybackRate; ignore gracefully.
+                }
+            }, 12000);
 
-                // Position
-                positions[i] = x;
-                positions[i + 1] = y;
-                positions[i + 2] = 0;
+            // Pause when tab is hidden; resume when visible.
+            const onVis = () => {
+                if (document.hidden) anim.pause();
+                else anim.play();
+            };
+            document.addEventListener('visibilitychange', onVis, { passive: true });
 
-                // Pre-calculate Attributes
-                // 1. Distance for wave phase (saves sqrt() in shader)
-                distances[dI] = Math.sqrt(x * x + y * y);
+            // Pause when not on screen using IntersectionObserver.
+            const io = new IntersectionObserver(
+                (entries) => {
+                    const entry = entries[0];
+                    if (!entry) return;
+                    if (entry.isIntersecting) anim.play();
+                    else anim.pause();
+                },
+                { root: null, threshold: 0.05 }
+            );
+            io.observe(container);
+            observerRef.current = io;
 
-                // 2. Random value for variety
-                randoms[dI] = Math.random();
-
-                i += 3;
-                dI++;
-            }
+            // Clean up listeners/timers on unmount.
+            return () => {
+                window.clearTimeout(slowDownTimer);
+                document.removeEventListener('visibilitychange', onVis);
+                if (observerRef.current) {
+                    observerRef.current.disconnect();
+                    observerRef.current = null;
+                }
+                try {
+                    anim.cancel(); // release animation resources
+                } catch (_) {}
+                animationRef.current = null;
+            };
         }
 
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('aDist', new THREE.BufferAttribute(distances, 1));
-        geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
-
-        // --- Material ---
-        const material = new THREE.ShaderMaterial({
-            uniforms: {
-                uTime: { value: 0 },
-                uColor: { value: new THREE.Color(0xe77d22) }
-            },
-            vertexShader,
-            fragmentShader,
-            transparent: true,
-            blending: THREE.AdditiveBlending, // Key for the "beam" light look
-            depthWrite: false, // No Z-buffer writing needed for additive particles
-            depthTest: false   // Disable depth test to save checks (optional, safe here because 2D layer)
-        });
-
-        const points = new THREE.Points(geometry, material);
-        scene.add(points);
-
-        // --- Resize Logic ---
-        const handleResize = () => {
-            if (!container) return;
-            const w = container.clientWidth;
-            const h = container.clientHeight;
-            const aspect = w / h;
-
-            // Maintain consistent visual scale regardless of aspect ratio
-            const worldHeight = 10;
-            const worldWidth = worldHeight * aspect;
-
-            camera.left = -worldWidth / 2;
-            camera.right = worldWidth / 2;
-            camera.top = worldHeight / 2;
-            camera.bottom = -worldHeight / 2;
-
-            camera.updateProjectionMatrix();
-            renderer.setSize(w, h);
-        };
-
-        const resizeObserver = new ResizeObserver(handleResize);
-        resizeObserver.observe(container);
-        handleResize();
-
-        // --- Animation Loop ---
-        const clock = new THREE.Clock();
-        let frameId: number;
-
-        const animate = () => {
-            frameId = requestAnimationFrame(animate);
-
-            // Update time uniform
-            // We use simple elapsed time. For very long running tabs, 
-            // one might want to mod this, but float precision in JS is fine for days.
-            const elapsed = clock.getElapsedTime();
-            material.uniforms.uTime.value = elapsed;
-
-            renderer.render(scene, camera);
-        };
-
-        animate();
-
-        // --- Cleanup ---
-        return () => {
-            resizeObserver.disconnect();
-            cancelAnimationFrame(frameId);
-            if (container.contains(renderer.domElement)) {
-                container.removeChild(renderer.domElement);
-            }
-            geometry.dispose();
-            material.dispose();
-            renderer.dispose();
-        };
+        // If reduced motion, ensure a pleasing static beam.
+        // No animation loop; single paint only.
+        return () => {};
     }, [performanceTier]);
 
-    return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />;
+    // Layout: simple layered DOM, transform-only styling.
+    // Avoids filters/blur to reduce paint cost on mobile GPUs.
+    const beamThickness = performanceTier === 'medium' ? 'h-2' : 'h-[6px]';
+    const glowThickness = performanceTier === 'medium' ? 'h-12' : 'h-10';
+
+    return (
+        <div
+            ref={containerRef}
+            className={clsx(
+                'absolute inset-0 z-0 pointer-events-none overflow-hidden',
+                'bg-gradient-to-b from-bg-elevated via-bg-elevated to-bg-dark'
+            )}
+        >
+            {/* Glow layer (wide, faint). Pure transform/opacity; no filter blur. */}
+            <div
+                ref={glowRef}
+                className={clsx(
+                    'absolute left-0 top-1/2 -translate-y-1/2 w-[180%]',
+                    glowThickness,
+                    // Use theme tokens for color — lighter opacity for subtlety
+                    'bg-gradient-to-r from-primary/20 via-primary/35 to-transparent'
+                )}
+                style={{ transform: 'translate3d(-60%, -50%, 0)', opacity: 0.35 }}
+            />
+
+            {/* Beam core (thin, bright). Transform-only WAAPI animates this element. */}
+            <div
+                ref={beamRef}
+                className={clsx(
+                    'absolute left-0 top-1/2 -translate-y-1/2 w-[160%]',
+                    beamThickness,
+                    'bg-gradient-to-r from-primary via-primary/90 to-transparent'
+                )}
+                style={{ transform: 'translate3d(-60%, -50%, 0)', opacity: 0.85 }}
+            />
+        </div>
+    );
 });
 
 MobileBeam.displayName = 'MobileBeam';
+
+/*
+====================================================
+Performance Improvements Summary (Mobile specific)
+====================================================
+- Removed WebGL/Three.js: Eliminates GPU driver overhead, shader compilation, and fill-rate pressure.
+- Transform-only animation via WAAPI: Runs on compositor thread; no JS per frame → targets 60fps on modern phones.
+- Reduced motion support: Honours prefers-reduced-motion; zero animation work in that case.
+- IntersectionObserver + visibility pause: Animation pauses when offscreen or tab is hidden → battery and CPU savings.
+- will-change hints: Pre-allocates layers for transform/opacity to prevent layout thrash.
+- translate3d(0,0,0): Forces hardware acceleration to avoid software compositing.
+- No filters/blur: Avoids expensive paint/composite ops common on mobile.
+- Tier-based tuning: Slower duration and smaller wobble on low tier to reduce perceived jank.
+- Battery-aware throttling: Playback rate is lowered after ~12s to reduce energy while maintaining motion.
+
+Metrics / Techniques
+- JS re-renders during animation: 0 (no setState; refs + WAAPI only).
+- DOM writes per frame: 0 (compositor handles frames; we only create the animation once).
+- Target frame rate: 60fps (compositor-managed); practical on mid-range devices.
+- Animation properties: transform, opacity (GPU-friendly).
+- Cleanup: cancel() + disconnect() + remove listeners → prevents memory leaks.
+
+Side-by-side comparison to original
+- Original: WebGL point cloud with custom shaders, continuous rAF render loop.
+    New: DOM/CSS layers with WAAPI; no render loop, minimal JS.
+- Original: Additive blending and fragment shader feathering.
+    New: Gradient-based glow using theme tokens; avoids filter/blur and heavy blending.
+- Original: ResizeObserver + camera updates + render() per frame.
+    New: No canvas/camera; pure transform layers sized via CSS; observer only for pause/resume.
+- Original: Potential battery drain due to constant GPU activity even when offscreen.
+    New: Automatic pause when offscreen/hidden and playback-rate slow down.
+
+Testing considerations
+- Verify on low-tier Android (~2019) and mid-tier iPhone: animation should be smooth with minor wobble.
+- Check reduced motion: beam remains static without animation.
+- Ensure no layout thrash in DevTools (Performance): only composite layer updates.
+- Validate that pausing/resuming via visibility/intersection works without leaks.
+*/
