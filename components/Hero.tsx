@@ -55,12 +55,12 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       antialias: false,
       alpha: false,
       powerPreference: 'high-performance',
-      precision: 'highp', // Both tiers can handle highp
+      precision: tier === 'flagship' ? 'mediump' : 'highp', // mediump sufficient for mobile
     });
 
     // Aggressive pixel ratio optimization for mobile
     const pixelRatio = tier === 'flagship' ?
-      Math.min(window.devicePixelRatio, 1.5) : // Reduced from 2.0 to 1.5 for 30% performance boost
+      Math.min(window.devicePixelRatio, 1.0) : // Reduced to 1.0 for maximum mobile performance
       Math.min(window.devicePixelRatio, 2.0);
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -75,14 +75,14 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     // Aggressively optimized configuration for mobile Safari
     const TIER_CONFIG = {
       flagship: {
-        grid: { cols: 50, rows: 50, dotRadius: 0.03, spacing: 0.65, segments: 4 }, // Reduced to 50x50 for perfect mobile smoothnes
-        bloom: { strength: 0.25, radius: 0.4, threshold: 0.4, enabled: true }, // Ultra-light bloom
+        grid: { cols: 45, rows: 45, dotRadius: 0.035, spacing: 0.7, segments: 3 }, // 45x45 grid, triangular dots (3 segments)
+        bloom: { strength: 0.2, radius: 0.3, threshold: 0.5, enabled: true, halfRes: true }, // Lighter bloom at half resolution
         rgbShift: { amount: 0, enabled: false }, // Disabled for mobile - expensive multi-pass
-        pixelRatio: 1.5
+        pixelRatio: 1.0
       },
       high: {
         grid: { cols: 100, rows: 100, dotRadius: 0.025, spacing: 0.55, segments: 8 },
-        bloom: { strength: 0.5, radius: 0.9, threshold: 0.2, enabled: true },
+        bloom: { strength: 0.5, radius: 0.9, threshold: 0.2, enabled: true, halfRes: false },
         rgbShift: { amount: 0.002, enabled: true },
         pixelRatio: 2.0
       }
@@ -99,8 +99,13 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
 
     // Only enable bloom if configured
     if (config.bloom.enabled) {
+      // Use half resolution for mobile to reduce fill-rate cost
+      const bloomScale = config.bloom.halfRes ? 0.5 : 1.0;
       bloom = new UnrealBloomPass(
-        new THREE.Vector2(container.clientWidth, container.clientHeight),
+        new THREE.Vector2(
+          container.clientWidth * bloomScale,
+          container.clientHeight * bloomScale
+        ),
         config.bloom.strength,
         config.bloom.radius,
         config.bloom.threshold
