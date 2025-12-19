@@ -5,7 +5,7 @@ interface MobileBeamProps {
     performanceTier: 'medium' | 'low';
 }
 
-export const MobileBeam: React.FC<MobileBeamProps> = ({ performanceTier }) => {
+export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -206,4 +206,6 @@ export const MobileBeam: React.FC<MobileBeamProps> = ({ performanceTier }) => {
     }, [performanceTier]);
 
     return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />;
-};
+});
+
+MobileBeam.displayName = 'MobileBeam';

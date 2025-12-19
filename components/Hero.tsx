@@ -223,6 +223,8 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
   return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />;
 };
 
+const MemoizedBeamBackground = React.memo(BeamBackground);
+
 export default function Hero() {
   const [textIndex, setTextIndex] = useState(0);
   const [displayText, setDisplayText] = useState('');
@@ -262,10 +264,10 @@ export default function Hero() {
   }, [displayText, isDeleting, textIndex, skills, tier]); // Add tier to deps
 
   return (
-    <div className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden py-10 sm:py-0">
+    <div className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden pb-10 sm:py-0">
       {/* Background Layer */}
       {showHeavyBeam ? (
-        <BeamBackground isMobile={false} />
+        <MemoizedBeamBackground isMobile={false} />
       ) : (
         <MobileBeam performanceTier={tier} />
       )}
