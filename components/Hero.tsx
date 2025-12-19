@@ -10,8 +10,9 @@ import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ResumeModal } from '@/components/ui/resume-modal';
-import { useIsMobile } from '../hooks/use-mobile';
 import { MobileScrollIndicator } from '@/components/ui/mobile-scroll-indicator';
+import { usePerformanceTier } from '@/hooks/use-performance-tier';
+import { MobileBeam } from './hero/MobileBeam';
 
 interface BeamBackgroundProps {
   isMobile: boolean;
@@ -227,7 +228,12 @@ export default function Hero() {
   const [displayText, setDisplayText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
-  const isMobile = useIsMobile();
+
+  const tier = usePerformanceTier(); // Use our new hook
+
+  // High tier gets the original "Heavy" beam
+  // Medium/Low tier gets the new "Shader" beam
+  const showHeavyBeam = tier === 'high';
 
   const skills = ['Python', 'AWS', 'Security', 'Operations'];
 
@@ -253,29 +259,35 @@ export default function Hero() {
     }
 
     return () => clearInterval(typeInterval);
-  }, [displayText, isDeleting, textIndex, skills]);
+  }, [displayText, isDeleting, textIndex, skills, tier]); // Add tier to deps
 
   return (
-    <div className="relative w-full min-h-[100dvh] bg-bg-dark overflow-hidden">
-      <BeamBackground isMobile={isMobile} />
+    <div className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden py-10 sm:py-0">
+      {/* Background Layer */}
+      {showHeavyBeam ? (
+        <BeamBackground isMobile={false} />
+      ) : (
+        <MobileBeam performanceTier={tier} />
+      )}
 
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
-        <div className="max-w-5xl mx-auto space-y-8">
+      {/* Content Layer - Improved Mobile Spacing */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100dvh-5rem)] px-6 text-center">
+        <div className="max-w-5xl mx-auto space-y-8 sm:space-y-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="space-y-4"
+            className="space-y-6 sm:space-y-4"
           >
-            <h1 className="text-[clamp(2.5rem,5vw,6rem)] font-serif text-secondary leading-tight">
+            <h1 className="text-[clamp(2rem,5vw,6rem)] font-serif text-secondary leading-tight px-2">
               Solutions Engineer: Where Operations Meet Innovation
             </h1>
-            <p className="text-[clamp(1.1rem,2vw,1.875rem)] text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto">
+            <p className="text-[clamp(1rem,2vw,1.875rem)] text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto px-4">
               Bridging the gap between business operations and technical implementation through full-stack development, cloud infrastructure, and data-driven solutions.
             </p>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-[clamp(3rem,4vw,3.5rem)] font-serif mt-8">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 text-[clamp(2.5rem,4vw,3.5rem)] font-serif mt-8 sm:mt-12 min-h-[4rem]">
               <span className="text-secondary">Specializing in</span>
-              <span className="text-primary min-w-[300px] text-center">
+              <span className="text-primary min-w-[280px] sm:min-w-[300px] text-center">
                 {displayText}
                 <span className="animate-pulse">|</span>
               </span>
@@ -286,7 +298,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mt-12 w-full sm:w-auto"
+            className="flex flex-col sm:flex-row gap-4 justify-center mt-12 w-full max-w-md sm:max-w-none mx-auto"
           >
             <Link
               href="/projects"
@@ -305,7 +317,9 @@ export default function Hero() {
         </div>
       </div>
 
-      <MobileScrollIndicator />
+      <div className="block sm:hidden">
+        <MobileScrollIndicator />
+      </div>
 
       <ResumeModal
         isOpen={isResumeModalOpen}
