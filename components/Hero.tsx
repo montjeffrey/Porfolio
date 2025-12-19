@@ -75,7 +75,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     // Aggressively optimized configuration for mobile Safari
     const TIER_CONFIG = {
       flagship: {
-        grid: { cols: 60, rows: 60, dotRadius: 0.03, spacing: 0.65, segments: 4 }, // Reduced from 70x70 for better mobile perf
+        grid: { cols: 50, rows: 50, dotRadius: 0.03, spacing: 0.65, segments: 4 }, // Reduced to 50x50 for perfect mobile smoothnes
         bloom: { strength: 0.25, radius: 0.4, threshold: 0.4, enabled: true }, // Ultra-light bloom
         rgbShift: { amount: 0, enabled: false }, // Disabled for mobile - expensive multi-pass
         pixelRatio: 1.5
