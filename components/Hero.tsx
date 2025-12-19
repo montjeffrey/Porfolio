@@ -16,13 +16,33 @@ import { MobileBeam } from './hero/MobileBeam';
 
 interface BeamBackgroundProps {
   isMobile: boolean;
+  tier: 'flagship' | 'high';
 }
 
-const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
+const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  // Lazy initialization - only render when component is visible
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setShouldRender(true);
+          observer.disconnect(); // Only initialize once
+        }
+      },
+      { rootMargin: '200px' } // Start loading 200px before visible
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !shouldRender) return;
 
     const container = containerRef.current;
     if (!container) return;
@@ -35,9 +55,14 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
       antialias: false,
       alpha: false,
       powerPreference: 'high-performance',
-      precision: isMobile ? 'mediump' : 'highp', // Lower precision for mobile
+      precision: 'highp', // Both tiers can handle highp
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+
+    // Use tier-specific pixel ratio configuration
+    const pixelRatio = tier === 'flagship' ?
+      Math.min(window.devicePixelRatio, 2.0) :
+      Math.min(window.devicePixelRatio, 2.0);
+    renderer.setPixelRatio(pixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setClearColor(0x0d0d0d, 1);
     container.appendChild(renderer.domElement);
@@ -47,21 +72,38 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
 
     const camera = new THREE.OrthographicCamera();
 
-    // Setup Post-Processing for both Desktop and Mobile
+    // Tiered configuration for performance optimization
+    const TIER_CONFIG = {
+      flagship: {
+        grid: { cols: 80, rows: 80, dotRadius: 0.028, spacing: 0.6, segments: 6 },
+        bloom: { strength: 0.4, radius: 0.7, threshold: 0.25 },
+        rgbShift: { amount: 0.0015 },
+        pixelRatio: 2.0
+      },
+      high: {
+        grid: { cols: 100, rows: 100, dotRadius: 0.025, spacing: 0.55, segments: 8 },
+        bloom: { strength: 0.5, radius: 0.9, threshold: 0.2 },
+        rgbShift: { amount: 0.002 },
+        pixelRatio: 2.0
+      }
+    };
+
+    const config = TIER_CONFIG[tier];
+
+    // Setup Post-Processing with tiered settings
     let composer: EffectComposer | null = null;
     let rgbShift: ShaderPass | null = null;
     let bloom: UnrealBloomPass | null = null;
 
-    // We now enable post-processing for everyone, but we can tune it if needed
     const renderPass = new RenderPass(scene, camera);
     bloom = new UnrealBloomPass(
       new THREE.Vector2(container.clientWidth, container.clientHeight),
-      0.5,
-      0.9,
-      0.2
+      config.bloom.strength,
+      config.bloom.radius,
+      config.bloom.threshold
     );
     rgbShift = new ShaderPass(RGBShiftShader);
-    rgbShift.uniforms['amount'].value = 0.002;
+    rgbShift.uniforms['amount'].value = config.rgbShift.amount;
     rgbShift.uniforms['angle'].value = Math.PI / 4;
 
     composer = new EffectComposer(renderer);
@@ -69,25 +111,25 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
     composer.addPass(bloom);
     composer.addPass(rgbShift);
 
-    // Adjust grid density based on device
+    // Grid configuration based on tier
     const GRID = {
-      cols: isMobile ? 70 : 100, // Increased density for mobile (was 50)
-      rows: isMobile ? 70 : 100, // Increased density for mobile (was 50)
+      cols: config.grid.cols,
+      rows: config.grid.rows,
       jitter: 0.25,
       hexOffset: 0.5,
-      dotRadius: isMobile ? 0.03 : 0.025, // Slightly larger dots on mobile
-      spacing: isMobile ? 0.8 : 0.55 // Adjusted spacing for mobile density
+      dotRadius: config.grid.dotRadius,
+      spacing: config.grid.spacing
     };
 
     const total = GRID.cols * GRID.rows;
-    const geometry = new THREE.CircleGeometry(GRID.dotRadius, isMobile ? 4 : 8); // Lower geometry detail on mobile
+    const geometry = new THREE.CircleGeometry(GRID.dotRadius, config.grid.segments);
 
-    // Use additive blending on mobile to simulate glow without heavy post-processing
+    // Use additive blending for glowing beam aesthetic
     const material = new THREE.MeshBasicMaterial({
       color: 0xe77d22,
-      blending: THREE.AdditiveBlending, // Always use additive for the beam look
-      opacity: isMobile ? 0.8 : 1.0,
-      transparent: isMobile
+      blending: THREE.AdditiveBlending,
+      opacity: tier === 'flagship' ? 0.9 : 1.0,
+      transparent: tier === 'flagship'
     });
 
     const dots = new THREE.InstancedMesh(geometry, material, total);
@@ -218,7 +260,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile }) => {
       material.dispose();
       if (composer) composer.dispose();
     };
-  }, [isMobile]);
+  }, [isMobile, tier, shouldRender]);
 
   return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />;
 };
@@ -233,9 +275,9 @@ export default function Hero() {
 
   const tier = usePerformanceTier(); // Use our new hook
 
-  // High tier gets the original "Heavy" beam
-  // Medium/Low tier gets the new "Shader" beam
-  const showHeavyBeam = tier === 'high';
+  // Desktop (high) and flagship mobile get BeamBackground with post-processing
+  // Medium/Low tier gets shader-based MobileBeam
+  const showHeavyBeam = tier === 'high' || tier === 'flagship';
 
   const skills = ['Python', 'AWS', 'Security', 'Operations'];
 
@@ -264,24 +306,24 @@ export default function Hero() {
   }, [displayText, isDeleting, textIndex, skills, tier]); // Add tier to deps
 
   return (
-    <div className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden pb-10 sm:py-0">
+    <div className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden pb-20 sm:pb-10">
       {/* Background Layer */}
       {showHeavyBeam ? (
-        <MemoizedBeamBackground isMobile={false} />
+        <MemoizedBeamBackground isMobile={tier === 'flagship'} tier={tier as 'flagship' | 'high'} />
       ) : (
-        <MobileBeam performanceTier={tier} />
+        <MobileBeam performanceTier={tier as 'medium' | 'low'} />
       )}
 
       {/* Content Layer - Improved Mobile Spacing */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100dvh-5rem)] px-6 text-center">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100dvh-10rem)] px-8 sm:px-6 text-center">
         <div className="max-w-5xl mx-auto space-y-8 sm:space-y-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="space-y-6 sm:space-y-4"
+            className="space-y-8 sm:space-y-6"
           >
-            <h1 className="text-[clamp(2rem,5vw,6rem)] font-serif text-secondary leading-tight px-2">
+            <h1 className="text-[clamp(2rem,5vw,6rem)] font-serif text-secondary leading-tight px-4 sm:px-2">
               Solutions Engineer: Where Operations Meet Innovation
             </h1>
             <p className="text-[clamp(1rem,2vw,1.875rem)] text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto px-4">
@@ -300,7 +342,7 @@ export default function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center mt-12 w-full max-w-md sm:max-w-none mx-auto"
+            className="flex flex-col sm:flex-row gap-6 sm:gap-4 justify-center mt-16 sm:mt-12 w-full max-w-md sm:max-w-none mx-auto"
           >
             <Link
               href="/projects"

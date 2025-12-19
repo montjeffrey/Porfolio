@@ -40,7 +40,7 @@ export function EvervaultBackground({
   // Cache bounds to avoid layout thrashing
   const boundsRef = useRef<DOMRect | null>(null);
 
-  // Robust Bounds Caching & Resize Handling
+  // Optimized Bounds Caching - No scroll listener, uses IntersectionObserver instead
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -51,13 +51,25 @@ export function EvervaultBackground({
     };
 
     updateBounds();
+
+    // Update bounds on resize
     const resizeObserver = new ResizeObserver(() => updateBounds());
     resizeObserver.observe(containerRef.current);
-    window.addEventListener("scroll", updateBounds, { passive: true, capture: true });
+
+    // Update bounds when element enters/exits viewport (replaces scroll listener)
+    const intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          updateBounds();
+        }
+      },
+      { threshold: [0, 0.1, 0.9, 1] } // Track visibility changes
+    );
+    intersectionObserver.observe(containerRef.current);
 
     return () => {
       resizeObserver.disconnect();
-      window.removeEventListener("scroll", updateBounds);
+      intersectionObserver.disconnect();
     };
   }, []);
 

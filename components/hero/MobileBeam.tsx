@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 
 interface MobileBeamProps {
-    performanceTier: 'medium' | 'low';
+    performanceTier: 'flagship' | 'medium' | 'low';
 }
 
 export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
@@ -32,12 +32,13 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
         camera.position.z = 1;
 
         // --- Configuration ---
-        // Aggressively reduced counts for mobile
-        // Previous: 60x60 (3600) / 40x40 (1600)
-        // New: 40x40 (1600) / 30x30 (900)
-        const cols = performanceTier === 'medium' ? 40 : 30;
-        const rows = performanceTier === 'medium' ? 40 : 30;
-        const spacing = 0.8; // Increased spacing since we have fewer dots
+        // Tiered grid density for different performance levels
+        // flagship: 60x60 (3,600 dots) - Premium mobile quality
+        // medium: 40x40 (1,600 dots) - Mid-range mobile
+        // low: 30x30 (900 dots) - Budget mobile
+        const cols = performanceTier === 'flagship' ? 60 : performanceTier === 'medium' ? 40 : 30;
+        const rows = performanceTier === 'flagship' ? 60 : performanceTier === 'medium' ? 40 : 30;
+        const spacing = performanceTier === 'flagship' ? 0.65 : 0.8;
         const dotCount = cols * rows;
 
         // --- Shader Logic ---
@@ -75,9 +76,9 @@ export const MobileBeam = React.memo<MobileBeamProps>(({ performanceTier }) => {
         vIntensity = 0.5 + wave * 0.5;
 
         gl_Position = projectionMatrix * modelViewMatrix * vec4(finalPos, 1.0);
-        
-        // Size attenuation
-        gl_PointSize = ${performanceTier === 'medium' ? '24.0' : '20.0'}; 
+
+        // Size attenuation - larger dots for better quality on flagship
+        gl_PointSize = ${performanceTier === 'flagship' ? '26.0' : performanceTier === 'medium' ? '24.0' : '20.0'}; 
       }
     `;
 
