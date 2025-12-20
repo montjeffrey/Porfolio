@@ -34,11 +34,8 @@ export default function FeaturedProjects() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{
-            duration: 1.2,
-            ease: [0.34, 1.56, 0.64, 1],
-            type: "spring",
-            stiffness: 80,
-            damping: 25
+            duration: 1.0,
+            ease: [0.16, 1, 0.3, 1],
           }}
           className="text-4xl md:text-5xl font-serif text-secondary text-center mb-16"
         >
@@ -53,12 +50,9 @@ export default function FeaturedProjects() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.3 }}
               transition={{
-                duration: 0.5,
-                delay: index * 0.08,
-                ease: [0.25, 0.1, 0.25, 1],
-                type: "spring",
-                stiffness: 180,
-                damping: 18
+                duration: 0.8,
+                delay: index * 0.1,
+                ease: [0.16, 1, 0.3, 1],
               }}
               whileHover={{ scale: 1.02, y: -5 }}
               className="relative group rounded-2xl p-8 border transition-all duration-300 overflow-hidden
@@ -111,12 +105,9 @@ export default function FeaturedProjects() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{
-            duration: 0.5,
+            duration: 0.8,
             delay: 0.2,
-            ease: [0.25, 0.1, 0.25, 1],
-            type: "spring",
-            stiffness: 180,
-            damping: 18
+            ease: [0.16, 1, 0.3, 1],
           }}
           className="flex justify-center mt-12"
         >
@@ -129,7 +120,7 @@ export default function FeaturedProjects() {
           </Link>
         </motion.div>
       </div>
-    </section>
+    </section >
   );
 }
 
