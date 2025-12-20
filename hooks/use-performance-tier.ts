@@ -24,6 +24,23 @@ export function usePerformanceTier(): PerformanceTier {
             // Hardware concurrency (CPU cores)
             const concurrency = navigator.hardwareConcurrency || 4;
 
+            // OS Version Detection
+            const userAgent = navigator.userAgent;
+            let iosVersion: number | null = null;
+            let androidVersion: number | null = null;
+
+            // Parse iOS version (e.g., "iPhone OS 15_0" or "Version/15.0")
+            const iosMatch = userAgent.match(/OS (\d+)_/i) || userAgent.match(/Version\/(\d+)\./i);
+            if (iosMatch && /iPhone|iPad|iPod/i.test(userAgent)) {
+                iosVersion = parseInt(iosMatch[1], 10);
+            }
+
+            // Parse Android version (e.g., "Android 11")
+            const androidMatch = userAgent.match(/Android (\d+)/i);
+            if (androidMatch) {
+                androidVersion = parseInt(androidMatch[1], 10);
+            }
+
             // GPU Detection via WebGL
             let gpuTier: 'high' | 'medium' | 'low' = 'medium';
             try {
@@ -53,7 +70,6 @@ export function usePerformanceTier(): PerformanceTier {
             }
 
             // Device-specific detection for known flagships
-            const userAgent = navigator.userAgent;
             const isFlagshipApple = /iPhone1[3-9]|iPhone[2-9][0-9]|iPad.*Pro.*M[0-9]/i.test(userAgent);
             const isFlagshipSamsung = /SM-S9[0-9]{2}|SM-S2[0-9]{2}/i.test(userAgent); // S21+, S22+, S23+, S24+
             const isFlagshipPixel = /Pixel [6-9].*Pro|Pixel [1-9][0-9].*Pro/i.test(userAgent);
@@ -63,20 +79,35 @@ export function usePerformanceTier(): PerformanceTier {
                 return 'high';
             }
 
+            // Check if OS version is outdated (even on flagship hardware)
+            const isOutdatedOS =
+                (iosVersion !== null && iosVersion < 16) ||      // iOS < 16 (pre-2022)
+                (androidVersion !== null && androidVersion < 12); // Android < 12 (pre-2021)
+
             // Flagship mobile detection
             // Criteria: 6+ cores OR flagship GPU OR known flagship device
-            if (
+            const isFlagshipHardware =
                 concurrency >= 6 ||
                 gpuTier === 'high' ||
                 isFlagshipApple ||
                 isFlagshipSamsung ||
-                isFlagshipPixel
-            ) {
+                isFlagshipPixel;
+
+            if (isFlagshipHardware) {
+                // Downgrade flagship to medium if on outdated OS
+                // Old Safari/Chrome versions have worse WebGL performance
+                if (isOutdatedOS) {
+                    return 'medium';
+                }
                 return 'flagship';
             }
 
             // Mid-range mobile
             if (concurrency >= 5 || gpuTier === 'medium') {
+                // Downgrade to low if on very old OS
+                if (isOutdatedOS) {
+                    return 'low';
+                }
                 return 'medium';
             }
 
@@ -89,8 +120,17 @@ export function usePerformanceTier(): PerformanceTier {
 
         // Log tier for debugging (remove in production)
         if (process.env.NODE_ENV === 'development') {
+            // Parse versions for logging
+            const userAgent = navigator.userAgent;
+            const iosMatch = userAgent.match(/OS (\d+)_/i) || userAgent.match(/Version\/(\d+)\./i);
+            const androidMatch = userAgent.match(/Android (\d+)/i);
+            const iosVersion = iosMatch && /iPhone|iPad|iPod/i.test(userAgent) ? parseInt(iosMatch[1], 10) : null;
+            const androidVersion = androidMatch ? parseInt(androidMatch[1], 10) : null;
+
             console.log('[Performance Tier]', detectedTier, {
                 cores: navigator.hardwareConcurrency,
+                iosVersion,
+                androidVersion,
                 userAgent: navigator.userAgent
             });
         }
