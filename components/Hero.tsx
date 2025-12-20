@@ -392,6 +392,26 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     observer.observe(container);
 
     resizeCamera();
+
+    // Shader Pre-compilation & Warmup to prevent initial stutter
+    // 1. Force shader compilation
+    renderer.compile(scene, camera);
+
+    // 2. Initial warmup render (invisible) to upload buffers to GPU
+    // Ensure it's invisible to avoid flash
+    const initialOpacity = material.opacity;
+    material.opacity = 0;
+
+    // Force a render cycle
+    if (composer) {
+      composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
+
+    // Restore opacity logic triggers in the loop, but reset just in case
+    material.opacity = initialOpacity;
+
     animate();
 
     return () => {

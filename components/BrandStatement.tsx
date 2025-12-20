@@ -9,7 +9,7 @@ export default function BrandStatement() {
     <section className="relative py-20 px-6 overflow-hidden min-h-[600px]">
       {/* Evervault background effect - covers entire section */}
       <EvervaultBackground className="rounded-none" radius={450} />
-      
+
       {/* Content wrapper with glassmorphism */}
       <div className="relative z-10 max-w-4xl mx-auto text-center">
         <div
@@ -23,7 +23,7 @@ export default function BrandStatement() {
           </div>
 
           <p className="text-xl md:text-2xl text-secondary/80 leading-relaxed">
-            My journey from Electrical Engineering to Operations Management to Software Development isn't just a career path—it's my competitive advantage. I understand the technical constraints engineers face, the operational challenges managers navigate, and the customer needs that drive business decisions.
+            My journey from Electrical Engineering to Operations Management to Software Development isn't just a career path, it's my competitive advantage. I understand the technical constraints engineers face, the operational challenges managers navigate, and the customer needs that drive business decisions.
           </p>
 
           <p className="text-lg text-secondary/70 leading-relaxed">
