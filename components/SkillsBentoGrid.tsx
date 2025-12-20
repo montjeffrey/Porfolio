@@ -5,31 +5,63 @@ import { EvervaultBackground } from "@/components/ui/evervault-background";
 
 const skills = [
   {
+    title: "Operations & Analytics",
+    icon: BarChart3,
+    description: (
+      <>
+        <strong className="text-secondary group-hover:text-primary transition-colors duration-300">Business logic automation</strong> —
+        Streamlining complex workflows with Salesforce, Lawmatics, and
+        intelligent data validation.
+      </>
+    ),
+    outcome: "Cut manual data tasks by 50% through custom CRM automation workflows",
+    badges: ["5,000+ Records Managed", "CRM Automation"],
+    emoji: "📊",
+    gradient: "from-primary/20 to-primary/5",
+  },
+  {
+    title: "Full-Stack Development",
+    icon: Code,
+    description: (
+      <>
+        <strong className="text-secondary group-hover:text-primary transition-colors duration-300">Responsive, data-driven applications</strong> —
+        Building robust web tools from complex CRM integrations to ML-powered
+        analytics.
+      </>
+    ),
+    outcome: "74% prediction accuracy in ML sports analytics platform",
+    badges: ["ML", "Random Forest", "API Integrations"],
+    emoji: "💻",
+    gradient: "from-primary/20 to-primary/5",
+  },
+  {
     title: "Cloud & Infrastructure",
     icon: Cloud,
-    description: "Building secure, scalable cloud architectures with hands-on experience in VPC configuration, DNS management, and virtual infrastructure deployment. Currently pursuing AWS Cloud Practitioner and Azure Fundamentals certifications.",
+    description: (
+      <>
+        <strong className="text-secondary group-hover:text-primary transition-colors duration-300">Secure, scalable cloud foundations</strong> —
+        VPC configuration, DNS management, and production deployments on AWS &
+        Azure.
+      </>
+    ),
+    outcome: "Deployed production sites on AWS with infrastructure-as-code practices",
+    badges: ["AWS Deployed", "Multi-Environment"],
     emoji: "🌩️",
     gradient: "from-primary/20 to-primary/5",
   },
   {
     title: "Security & Compliance",
     icon: Shield,
-    description: "Implementing security-first development practices with experience in network analysis using Wireshark, vulnerability assessment frameworks, and automated security testing suites.",
+    description: (
+      <>
+        <strong className="text-secondary group-hover:text-primary transition-colors duration-300">Security-first architecture</strong> —
+        Network analysis, vulnerability assessment, and automated testing
+        suites.
+      </>
+    ),
+    outcome: "Reduced vulnerability exposure through automated security testing suites",
+    badges: ["Kali Linux", "CVSS Tools", "Vulnerability Scanning"],
     emoji: "🛡️",
-    gradient: "from-primary/20 to-primary/5",
-  },
-  {
-    title: "Full-Stack Development",
-    icon: Code,
-    description: "Creating responsive web applications and data-driven solutions. From CRM integrations to ML-powered analytics, I build tools that solve real business problems.",
-    emoji: "💻",
-    gradient: "from-primary/20 to-primary/5",
-  },
-  {
-    title: "Operations & Analytics",
-    icon: BarChart3,
-    description: "Leveraging experience with Salesforce, Lawmatics, and custom automation to streamline operations. Skilled in data cleaning, validation, and building intelligent workflows that save time and reduce errors.",
-    emoji: "📊",
     gradient: "from-primary/20 to-primary/5",
   },
 ];
@@ -57,7 +89,7 @@ const SkillCard = ({
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.03] to-transparent pointer-events-none" />
 
       {/* Content layer */}
-      <div className="relative z-10">
+      <div className="relative z-10 h-full flex flex-col">
         <div className="flex items-start gap-4 mb-4">
           <div className="text-4xl">{skill.emoji}</div>
           <div className="flex-1">
@@ -67,9 +99,26 @@ const SkillCard = ({
                 {skill.title}
               </h3>
             </div>
-            <p className="text-secondary/80 leading-relaxed">
+            <p className="text-secondary/80 leading-relaxed mb-4">
               {skill.description}
             </p>
+
+            {/* Outcome Line */}
+            <div className="mb-4 pl-4 border-l-2 border-primary/50 text-secondary/90 italic text-sm">
+              "{skill.outcome}"
+            </div>
+
+            {/* Badges */}
+            <div className="flex flex-wrap gap-2 mt-auto">
+              {skill.badges.map((badge) => (
+                <span
+                  key={badge}
+                  className="px-2 py-1 bg-primary/10 rounded-md text-xs font-semibold text-primary border border-primary/20 whitespace-nowrap"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -88,7 +137,7 @@ export default function SkillsBentoGrid() {
 
       {/* Content wrapper - allows mouse events to pass through to background */}
       <div className="relative z-10 max-w-7xl mx-auto">
-        <div className="flex justify-center mb-16">
+        <div className="flex flex-col items-center mb-16">
           <h2
             className="text-4xl md:text-5xl font-serif text-secondary text-center relative z-20 
               backdrop-blur-xl bg-bg-elevated/60 rounded-2xl py-4 px-8
@@ -98,6 +147,16 @@ export default function SkillsBentoGrid() {
           >
             Skills Snapshot
           </h2>
+          <div
+            className="mt-6 backdrop-blur-md bg-bg-elevated/40 rounded-full py-2 px-6
+              border border-primary/20 shadow-sm
+              hover:border-primary/40 hover:bg-bg-elevated/50
+              transition-all duration-300"
+          >
+            <span className="text-xl text-secondary/90 font-serif italic text-center animate-fade-in">
+              Where technical depth meets business impact
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-20">

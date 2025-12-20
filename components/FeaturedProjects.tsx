@@ -32,7 +32,7 @@ export default function FeaturedProjects() {
         <motion.h2
           initial={{ opacity: 0, y: -80 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.3 }}
+          viewport={{ once: true, amount: 0.2 }}
           transition={{
             duration: 1.0,
             ease: [0.16, 1, 0.3, 1],
@@ -48,7 +48,7 @@ export default function FeaturedProjects() {
               key={project.title}
               initial={{ opacity: 0, x: index % 2 === 0 ? -60 : 60 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: false, amount: 0.3 }}
+              viewport={{ once: true, amount: 0.2 }}
               transition={{
                 duration: 0.8,
                 delay: index * 0.1,
@@ -103,7 +103,7 @@ export default function FeaturedProjects() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.3 }}
+          viewport={{ once: true, amount: 0.2 }}
           transition={{
             duration: 0.8,
             delay: 0.2,
