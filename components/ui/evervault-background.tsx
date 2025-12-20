@@ -213,36 +213,40 @@ const EvervaultPattern = React.memo(function EvervaultPattern({
       const height = rect.height * dpr;
 
       // Efficient resize check
-      if (Math.abs(canvas.width - width) > 1 || Math.abs(canvas.height - height) > 1) {
+      const needsResize = Math.abs(canvas.width - width) > 1 || Math.abs(canvas.height - height) > 1;
+
+      if (needsResize) {
         canvas.width = width;
         canvas.height = height;
 
         ctx.scale(dpr, dpr);
-        ctx.font = font;
       }
 
-      if (time - lastTime > interval) {
+      if (time - lastTime > interval || needsResize) {
         lastTime = time;
 
-        if (canvas.width === width) {
-          ctx.clearRect(0, 0, rect.width, rect.height);
-        }
+        ctx.clearRect(0, 0, rect.width, rect.height);
 
         ctx.font = `bold ${fontSize}px monospace`;
         ctx.fillStyle = "rgba(240, 237, 228, 0.8)"; // text-secondary/80
         ctx.textBaseline = "top";
 
-        const charWidth = ctx.measureText("M").width;
-        const columns = Math.ceil(rect.width / charWidth) + 2;
-        const rows = Math.ceil(rect.height / fontSize);
+        const charMetrics = ctx.measureText("M");
+        const charWidth = charMetrics.width;
 
-        // Draw the grid
-        for (let i = 0; i < rows; i++) {
-          let line = "";
-          for (let j = 0; j < columns; j++) {
-            line += chars[Math.floor(Math.random() * chars.length)];
+        if (charWidth > 0 && rect.width > 0 && rect.height > 0) {
+          const columns = Math.ceil(rect.width / charWidth) + 2;
+          const rows = Math.ceil(rect.height / fontSize) + 1;
+
+          // Draw the grid
+          for (let i = 0; i < rows; i++) {
+            let line = "";
+            const safeColumns = Math.min(columns, 500);
+            for (let j = 0; j < safeColumns; j++) {
+              line += chars[Math.floor(Math.random() * chars.length)];
+            }
+            ctx.fillText(line, 0, i * fontSize);
           }
-          ctx.fillText(line, 0, i * fontSize);
         }
       }
 
