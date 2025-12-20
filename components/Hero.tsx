@@ -21,7 +21,6 @@ interface BeamBackgroundProps {
 
 const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [shouldRender, setShouldRender] = useState(false);
 
   // Refs for smooth parameter transitions
   const paramsRef = useRef({
@@ -33,26 +32,8 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     bloomStrength: 0,    // Track bloom intensity dynamically
   });
 
-  // Lazy initialization - only render when component is visible
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setShouldRender(true);
-          observer.disconnect(); // Only initialize once
-        }
-      },
-      { rootMargin: '200px' } // Start loading 200px before visible
-    );
-
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !shouldRender) return;
+    if (typeof window === 'undefined') return;
 
     const container = containerRef.current;
     if (!container) return;
@@ -167,45 +148,25 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
     let xOffset = (GRID.cols - 1) * GRID.spacing * 0.5;
     let yOffset = (GRID.rows - 1) * GRID.spacing * 0.5;
 
-    const dummy = new THREE.Object3D();
+    // Synchronous initialization for instant startup - fixes "laggy" initial load
+    for (let idx = 0; idx < total; idx++) {
+      const r = Math.floor(idx / GRID.cols);
+      const c = idx % GRID.cols;
 
-    // Progressive loading to prevent chunked appearance
-    const CHUNK_SIZE = 500; // Load 500 dots at a time
-    let loadedDots = 0;
+      let x = c * GRID.spacing - xOffset;
+      let y = r * GRID.spacing - yOffset;
+      y += (c % 2) * GRID.hexOffset * GRID.spacing;
+      x += (Math.random() - 0.5) * GRID.jitter;
+      y += (Math.random() - 0.5) * GRID.jitter;
+      basePos[idx * 2 + 0] = x;
+      basePos[idx * 2 + 1] = y;
+      const len = Math.hypot(x, y);
+      distArr[idx] = len;
 
-    const loadDotsChunk = () => {
-      const start = loadedDots;
-      const end = Math.min(start + CHUNK_SIZE, total);
-
-      for (let idx = start; idx < end; idx++) {
-        const r = Math.floor(idx / GRID.cols);
-        const c = idx % GRID.cols;
-
-        let x = c * GRID.spacing - xOffset;
-        let y = r * GRID.spacing - yOffset;
-        y += (c % 2) * GRID.hexOffset * GRID.spacing;
-        x += (Math.random() - 0.5) * GRID.jitter;
-        y += (Math.random() - 0.5) * GRID.jitter;
-        basePos[idx * 2 + 0] = x;
-        basePos[idx * 2 + 1] = y;
-        const len = Math.hypot(x, y);
-        distArr[idx] = len;
-        dummy.position.set(x, y, 0);
-        dummy.updateMatrix();
-        dots.setMatrixAt(idx, dummy.matrix);
-      }
-
-      dots.instanceMatrix.needsUpdate = true;
-      loadedDots = end;
-
-      // Continue loading if there are more dots
-      if (loadedDots < total) {
-        requestAnimationFrame(loadDotsChunk);
-      }
-    };
-
-    // Start progressive loading
-    loadDotsChunk();
+      // Note: We don't set initial matrix here because the animate loop
+      // will immediately update all matrices on the first frame using
+      // direct buffer access, which is much faster.
+    }
 
 
 
@@ -445,7 +406,7 @@ const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
       material.dispose();
       if (composer) composer.dispose();
     };
-  }, [isMobile, tier, shouldRender]);
+  }, [isMobile, tier]);
 
   return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />;
 };
@@ -563,9 +524,11 @@ export default function Hero() {
         </div>
       </div>
 
-      <div className="block sm:hidden">
-        <MobileScrollIndicator />
-      </div>
+      {contentVisible && (
+        <div className="block sm:hidden">
+          <MobileScrollIndicator />
+        </div>
+      )}
 
       <ResumeModal
         isOpen={isResumeModalOpen}
