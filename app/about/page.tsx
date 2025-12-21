@@ -56,17 +56,17 @@ const certifications = [
   },
   {
     name: "AWS Certified Cloud Practitioner",
-    year: "Expected August 20, 2025",
+    year: "Coursework completed, exam pending January 2026",
     status: "in-progress",
   },
   {
     name: "Microsoft Azure Fundamentals (AZ-900)",
-    year: "Expected September 2025",
+    year: "Expected January 2026",
     status: "in-progress",
   },
   {
     name: "CompTIA Trifecta (Security+, Network+, A+)",
-    year: "Starting August 25, 2025",
+    year: "Coursework completed, Security+exam expected December 2025",
     status: "in-progress",
   },
 ];
