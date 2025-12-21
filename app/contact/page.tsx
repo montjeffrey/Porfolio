@@ -26,44 +26,71 @@ export default function ContactPage() {
     message: "",
     preferredContact: "Email",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"success" | "error" | null>(null);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!formData.name.trim()) newErrors.name = "Name is required";
+    else if (formData.name.length < 2) newErrors.name = "Name must be at least 2 characters";
+    else if (formData.name.length > 100) newErrors.name = "Name must be less than 100 characters";
+
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    else if (!emailRegex.test(formData.email)) newErrors.email = "Please enter a valid email address";
+
+    if (formData.company.length > 100) newErrors.company = "Company name must be less than 100 characters";
+
+    if (!formData.message.trim()) newErrors.message = "Message is required";
+    else if (formData.message.length < 10) newErrors.message = "Message must be at least 10 characters";
+    else if (formData.message.length > 1000) newErrors.message = "Message must be less than 1000 characters";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitStatus(null);
 
-    try {
-      const response = await fetch("https://formspree.io/f/meejgbqr", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        setSubmitStatus("success");
-        setFormData({
-          name: "",
-          email: "",
-          company: "",
-          projectType: "",
-          message: "",
-          preferredContact: "Email",
-        });
-        setTimeout(() => setSubmitStatus(null), 5000);
-      } else {
-        setSubmitStatus("error");
-      }
-    } catch (error) {
-      console.error("Form submission error:", error);
-      setSubmitStatus("error");
-    } finally {
-      setIsSubmitting(false);
+    if (!validateForm()) {
+      return;
     }
+
+    const { name, email, company, projectType, message } = formData;
+
+    // Construct email body
+    const body = `
+Name: ${name}
+Email: ${email}
+Company: ${company}
+Project Type: ${projectType}
+
+Message:
+${message}
+    `.trim();
+
+    // Construct mailto link
+    const subject = `Portfolio Inquiry: ${projectType || 'General'}`;
+    const mailtoLink = `mailto:montjeffrey@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    // Open email client
+    window.location.href = mailtoLink;
+
+    // Optional: Show a success message or clear form? 
+    // Usually with mailto, keeping the form filled is better so they can see what they sent, 
+    // or we can just reset it. Let's reset it to be clean.
+    setFormData({
+      name: "",
+      email: "",
+      company: "",
+      projectType: "",
+      message: "",
+      preferredContact: "Email",
+    });
+    setSubmitStatus("success");
+    setTimeout(() => setSubmitStatus(null), 5000);
   };
 
   const handleChange = (
@@ -71,6 +98,10 @@ export default function ContactPage() {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
+    }
   };
 
   return (
@@ -215,7 +246,7 @@ export default function ContactPage() {
                   className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg flex items-center gap-3 text-green-400"
                 >
                   <CheckCircle2 className="w-5 h-5" />
-                  <span>Please mail any inquires to Montjeffrey@gmail.com</span>
+                  <span>Opening your email client...</span>
                 </motion.div>
               )}
 
@@ -231,6 +262,9 @@ export default function ContactPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Honeypot field for spam protection */}
+                <input type="text" name="_gotcha" style={{ display: "none" }} />
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="name" className="block text-secondary mb-2">
@@ -240,12 +274,15 @@ export default function ContactPage() {
                       type="text"
                       id="name"
                       name="name"
-                      required
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 bg-bg-dark border border-primary/20 rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors"
+                      className={`w-full px-4 py-3 bg-bg-dark border rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors ${errors.name ? "border-red-500/50" : "border-primary/20"
+                        }`}
                       placeholder="Your name"
                     />
+                    {errors.name && (
+                      <p className="text-red-400 text-sm mt-1">{errors.name}</p>
+                    )}
                   </div>
 
                   <div>
@@ -256,12 +293,15 @@ export default function ContactPage() {
                       type="email"
                       id="email"
                       name="email"
-                      required
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 bg-bg-dark border border-primary/20 rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors"
+                      className={`w-full px-4 py-3 bg-bg-dark border rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors ${errors.email ? "border-red-500/50" : "border-primary/20"
+                        }`}
                       placeholder="your@email.com"
                     />
+                    {errors.email && (
+                      <p className="text-red-400 text-sm mt-1">{errors.email}</p>
+                    )}
                   </div>
                 </div>
 
@@ -275,9 +315,13 @@ export default function ContactPage() {
                     name="company"
                     value={formData.company}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-bg-dark border border-primary/20 rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors"
+                    className={`w-full px-4 py-3 bg-bg-dark border rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors ${errors.company ? "border-red-500/50" : "border-primary/20"
+                      }`}
                     placeholder="Your company"
                   />
+                  {errors.company && (
+                    <p className="text-red-400 text-sm mt-1">{errors.company}</p>
+                  )}
                 </div>
 
                 <div>
@@ -307,13 +351,16 @@ export default function ContactPage() {
                   <textarea
                     id="message"
                     name="message"
-                    required
                     rows={6}
                     value={formData.message}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-bg-dark border border-primary/20 rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors resize-none"
+                    className={`w-full px-4 py-3 bg-bg-dark border rounded-lg text-secondary placeholder-secondary/40 focus:outline-none focus:border-primary transition-colors resize-none ${errors.message ? "border-red-500/50" : "border-primary/20"
+                      }`}
                     placeholder="Tell me about your project..."
                   />
+                  {errors.message && (
+                    <p className="text-red-400 text-sm mt-1">{errors.message}</p>
+                  )}
                 </div>
 
                 <div>
@@ -353,7 +400,7 @@ export default function ContactPage() {
                   ) : (
                     <>
                       <Send className="w-5 h-5" />
-                      Send Message
+                      Open Email Client
                     </>
                   )}
                 </button>
