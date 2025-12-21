@@ -34,21 +34,36 @@ export default function ContactPage() {
     setIsSubmitting(true);
     setSubmitStatus(null);
 
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await fetch("https://formspree.io/f/meejgbqr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(formData),
+      });
 
-    // For now, we are just simulating success since the backend is not connected.
-    setSubmitStatus("success");
-    setFormData({
-      name: "",
-      email: "",
-      company: "",
-      projectType: "",
-      message: "",
-      preferredContact: "Email",
-    });
-    setIsSubmitting(false);
-    setTimeout(() => setSubmitStatus(null), 5000);
+      if (response.ok) {
+        setSubmitStatus("success");
+        setFormData({
+          name: "",
+          email: "",
+          company: "",
+          projectType: "",
+          message: "",
+          preferredContact: "Email",
+        });
+        setTimeout(() => setSubmitStatus(null), 5000);
+      } else {
+        setSubmitStatus("error");
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
+      setSubmitStatus("error");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (
