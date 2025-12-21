@@ -151,7 +151,7 @@ export default function SkillsBentoGrid() {
             className="mt-6 backdrop-blur-md bg-bg-elevated/40 rounded-full py-2 px-6
               border border-primary/20 shadow-sm
               hover:border-primary/40 hover:bg-bg-elevated/50
-              transition-all duration-300"
+              transition-all duration-300 text-center"
           >
             <span className="text-xl text-secondary/90 font-serif italic text-center animate-fade-in">
               Where technical depth meets business impact
