@@ -78,6 +78,7 @@ const SkillCard = ({
 }) => {
   return (
     <div
+      data-spotlight-anchor="skills-card"
       className="relative group rounded-2xl p-8 border transition-all duration-300 overflow-hidden
         backdrop-blur-xl bg-bg-elevated/60
         border-primary/30 hover:border-primary/60
@@ -139,6 +140,7 @@ export default function SkillsBentoGrid() {
       <div className="relative z-10 max-w-7xl mx-auto">
         <div className="flex flex-col items-center mb-16">
           <h2
+            data-spotlight-anchor="skills-title"
             className="text-4xl md:text-5xl font-serif text-secondary text-center relative z-20 
               backdrop-blur-xl bg-bg-elevated/60 rounded-2xl py-4 px-8
               border border-primary/30 shadow-lg shadow-primary/10

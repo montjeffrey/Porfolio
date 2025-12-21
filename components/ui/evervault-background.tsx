@@ -35,6 +35,15 @@ export function EvervaultBackground({
   const smoothMouseX = useSpring(mouseX, springConfig);
   const smoothMouseY = useSpring(mouseY, springConfig);
 
+  // Radius spring for smooth sizing
+  const radiusValue = useMotionValue(radius);
+  const smoothRadius = useSpring(radiusValue, springConfig);
+
+  useEffect(() => {
+    // Reset radius when prop changes
+    radiusValue.set(radius);
+  }, [radius, radiusValue]);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Cache bounds to avoid layout thrashing
@@ -91,7 +100,102 @@ export function EvervaultBackground({
   // Optimized Mouse Handling
   const [isHovered, setIsHovered] = useState(false);
 
+  // Mobile Scroll Driver
   useEffect(() => {
+    if (!isMobile) return;
+
+    // Set initial position to center if no anchors found yet
+    if (boundsRef.current) {
+      mouseX.set(boundsRef.current.width / 2);
+      mouseY.set(boundsRef.current.height / 2);
+    }
+
+    // Always show on mobile when in view (managed by opacity transitions)
+    setIsHovered(true);
+
+    let activeAnchor: Element | null = null;
+    let observer: IntersectionObserver;
+    let timeoutId: NodeJS.Timeout;
+
+    const handleIntersection = (entries: IntersectionObserverEntry[]) => {
+      // Find the most visible anchor
+      const visibleEntries = entries.filter(e => e.isIntersecting);
+
+      if (visibleEntries.length === 0) return;
+
+      // Sort by intersection ratio and closeness to center
+      const bestEntry = visibleEntries.reduce((prev, current) => {
+        return (prev.intersectionRatio > current.intersectionRatio) ? prev : current;
+      });
+
+      const anchor = bestEntry.target;
+
+      // Debounce logic to prevent jitters
+      if (activeAnchor !== anchor) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          activeAnchor = anchor;
+          updateSpotlight(anchor);
+        }, 120); // 120ms debounce "settle"
+      } else {
+        // Immediate update if it's the same anchor but moving (scrolling)
+        // We actually rely on the loop or just update when ratio changes significantly?
+        // Actually, we want to track it. simple way: update on every significant ratio change 
+        // OR better: just calculated target once when it becomes active?
+        // Requirement: "Spotlight center should be slightly above the anchor’s center"
+        // Since anchors scroll WITH the page, and the Spotlight is likely fixed/absolute within a container that MIGHT be scrolling?
+        // Wait, Evervault is absolute in the section. The section scrolls. 
+        // So the relative position of the anchor in the section is CONSTANT.
+        // HENCE we only need to update the target ONE TIME when the anchor becomes active!
+        // The spotlight is inside the same scrolling container (Skills Section).
+        updateSpotlight(anchor);
+      }
+    };
+
+    const updateSpotlight = (anchor: Element) => {
+      if (!boundsRef.current) return;
+      const anchorRect = anchor.getBoundingClientRect();
+      const containerRect = boundsRef.current; // This might be stale if we don't update it. 
+      // But boundsRef is updated on scroll in the other effect.
+
+      // We need accurate relative coordinates. 
+      // Since both move together in the document flow, their relative distance is constant.
+      // relativeX = anchorRect.left - containerRect.left
+      // relativeY = anchorRect.top - containerRect.top
+
+      const relLeft = anchorRect.left - containerRect.left;
+      const relTop = anchorRect.top - containerRect.top;
+
+      const targetX = relLeft + anchorRect.width * 0.5;
+      const targetY = relTop + anchorRect.height * 0.35; // Bias slightly up
+
+      mouseX.set(targetX);
+      mouseY.set(targetY);
+
+      // Adapt Layout
+      const size = Math.max(anchorRect.width, anchorRect.height);
+      const newRadius = Math.max(Math.min(size * 0.75, 400), 150); // Clamp
+      radiusValue.set(newRadius);
+    };
+
+    observer = new IntersectionObserver(handleIntersection, {
+      threshold: [0.2, 0.5, 0.8],
+      rootMargin: "-10% 0px -10% 0px" // Focus on center area
+    });
+
+    const anchors = document.querySelectorAll('[data-spotlight-anchor]');
+    anchors.forEach(a => observer.observe(a));
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeoutId);
+    };
+  }, [isMobile, mouseX, mouseY, radiusValue]);
+
+  // Desktop Mouse & Touch Handling
+  useEffect(() => {
+    if (isMobile) return; // Disable on mobile
+
     const handleMouseMove = (event: MouseEvent) => {
       if (!boundsRef.current) return;
       const { left, top, width, height } = boundsRef.current;
@@ -119,10 +223,12 @@ export function EvervaultBackground({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [isHovered, mouseX, mouseY]);
+  }, [isHovered, mouseX, mouseY, isMobile]);
 
-  // Separate effect for container-scoped events
+  // Separate effect for container-scoped events (Touch)
   useEffect(() => {
+    if (isMobile) return; // Disable on mobile
+
     const container = containerRef.current;
     if (!container) return;
 
@@ -146,7 +252,7 @@ export function EvervaultBackground({
       container.removeEventListener("touchmove", handleTouchMove);
       container.removeEventListener("mouseleave", handleMouseLeave);
     }
-  }, [mouseX, mouseY]);
+  }, [mouseX, mouseY, isMobile]);
 
   return (
     <div
@@ -160,7 +266,7 @@ export function EvervaultBackground({
       <EvervaultPattern
         mouseX={smoothMouseX}
         mouseY={smoothMouseY}
-        radius={radius}
+        radius={smoothRadius}
         isHovered={isHovered}
         isMobile={isMobile}
       />
@@ -178,7 +284,7 @@ const EvervaultPattern = React.memo(function EvervaultPattern({
 }: {
   mouseX: ReturnType<typeof useMotionValue<number>>;
   mouseY: ReturnType<typeof useMotionValue<number>>;
-  radius: number;
+  radius: any; // Allow MotionValue or number
   isHovered: boolean;
   isMobile: boolean;
 }) {
