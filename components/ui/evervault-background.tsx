@@ -46,12 +46,12 @@ export function EvervaultBackground({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Cache bounds to avoid layout thrashing
+  // Cache bounds to avoid layout thrashing (Desktop usage)
   const boundsRef = useRef<DOMRect | null>(null);
 
-  // Bounds Caching with scroll listener for accurate cursor tracking
+  // Bounds Caching with scroll listener for accurate cursor tracking on Desktop
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || isMobile) return; // Skip on mobile, we use direct calculation
 
     const updateBounds = () => {
       if (containerRef.current) {
@@ -61,22 +61,19 @@ export function EvervaultBackground({
 
     updateBounds();
 
-    // Update bounds on resize
     const resizeObserver = new ResizeObserver(() => updateBounds());
     resizeObserver.observe(containerRef.current);
 
-    // Update bounds when element enters/exits viewport
     const intersectionObserver = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           updateBounds();
         }
       },
-      { threshold: [0, 0.1, 0.5, 0.9, 1] } // More granular thresholds
+      { threshold: [0, 0.1, 0.5, 0.9, 1] }
     );
     intersectionObserver.observe(containerRef.current);
 
-    // Throttled scroll listener to keep bounds fresh during scroll
     let ticking = false;
     const handleScroll = () => {
       if (!ticking) {
@@ -95,100 +92,72 @@ export function EvervaultBackground({
       intersectionObserver.disconnect();
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [isMobile]);
 
   // Optimized Mouse Handling
   const [isHovered, setIsHovered] = useState(false);
 
-  // Mobile Scroll Driver
+  // Mobile Scroll Driver - Visible Center Follower
   useEffect(() => {
-    if (!isMobile) return;
+    if (!isMobile || !containerRef.current) return;
 
-    // Set initial position to center if no anchors found yet
-    if (boundsRef.current) {
-      mouseX.set(boundsRef.current.width / 2);
-      mouseY.set(boundsRef.current.height / 2);
-    }
-
-    // Always show on mobile when in view (managed by opacity transitions)
+    // Always keep spotlight active on mobile
     setIsHovered(true);
 
-    let activeAnchor: Element | null = null;
-    let observer: IntersectionObserver;
-    let timeoutId: NodeJS.Timeout;
+    const updateMobilePosition = () => {
+      if (!containerRef.current) return;
 
-    const handleIntersection = (entries: IntersectionObserverEntry[]) => {
-      // Find the most visible anchor
-      const visibleEntries = entries.filter(e => e.isIntersecting);
+      // Direct read for frame-perfect sync on mobile
+      const rect = containerRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
 
-      if (visibleEntries.length === 0) return;
+      // Calculate intersection with viewport
+      const visibleTop = Math.max(0, rect.top);
+      const visibleBottom = Math.min(viewportHeight, rect.bottom);
+      const visibleLeft = Math.max(0, rect.left);
+      const visibleRight = Math.min(viewportWidth, rect.right);
 
-      // Sort by intersection ratio and closeness to center
-      const bestEntry = visibleEntries.reduce((prev, current) => {
-        return (prev.intersectionRatio > current.intersectionRatio) ? prev : current;
-      });
+      // Check if visible
+      if (visibleTop >= visibleBottom || visibleLeft >= visibleRight) {
+        return; // Skip update if not visible
+      }
 
-      const anchor = bestEntry.target;
+      // Calculate center of the VISIBLE portion
+      const centerY = (visibleTop + visibleBottom) / 2;
+      const centerX = (visibleLeft + visibleRight) / 2;
 
-      // Debounce logic to prevent jitters
-      if (activeAnchor !== anchor) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          activeAnchor = anchor;
-          updateSpotlight(anchor);
-        }, 120); // 120ms debounce "settle"
-      } else {
-        // Immediate update if it's the same anchor but moving (scrolling)
-        // We actually rely on the loop or just update when ratio changes significantly?
-        // Actually, we want to track it. simple way: update on every significant ratio change 
-        // OR better: just calculated target once when it becomes active?
-        // Requirement: "Spotlight center should be slightly above the anchor’s center"
-        // Since anchors scroll WITH the page, and the Spotlight is likely fixed/absolute within a container that MIGHT be scrolling?
-        // Wait, Evervault is absolute in the section. The section scrolls. 
-        // So the relative position of the anchor in the section is CONSTANT.
-        // HENCE we only need to update the target ONE TIME when the anchor becomes active!
-        // The spotlight is inside the same scrolling container (Skills Section).
-        updateSpotlight(anchor);
+      // Calculate position relative to container
+      const relativeX = centerX - rect.left;
+      const relativeY = centerY - rect.top;
+
+      mouseX.set(relativeX);
+      mouseY.set(relativeY);
+
+      // Dynamic radius based on viewport width
+      const newRadius = Math.min(viewportWidth * 0.8, 350);
+      try {
+        radiusValue.set(newRadius);
+      } catch (e) {
+        // Fallback
       }
     };
 
-    const updateSpotlight = (anchor: Element) => {
-      if (!boundsRef.current) return;
-      const anchorRect = anchor.getBoundingClientRect();
-      const containerRect = boundsRef.current; // This might be stale if we don't update it. 
-      // But boundsRef is updated on scroll in the other effect.
+    // Initialize
+    updateMobilePosition();
 
-      // We need accurate relative coordinates. 
-      // Since both move together in the document flow, their relative distance is constant.
-      // relativeX = anchorRect.left - containerRect.left
-      // relativeY = anchorRect.top - containerRect.top
-
-      const relLeft = anchorRect.left - containerRect.left;
-      const relTop = anchorRect.top - containerRect.top;
-
-      const targetX = relLeft + anchorRect.width * 0.5;
-      const targetY = relTop + anchorRect.height * 0.35; // Bias slightly up
-
-      mouseX.set(targetX);
-      mouseY.set(targetY);
-
-      // Adapt Layout
-      const size = Math.max(anchorRect.width, anchorRect.height);
-      const newRadius = Math.max(Math.min(size * 0.75, 400), 150); // Clamp
-      radiusValue.set(newRadius);
+    // Hook into scrol loop
+    const handleScroll = () => {
+      requestAnimationFrame(updateMobilePosition);
     };
 
-    observer = new IntersectionObserver(handleIntersection, {
-      threshold: [0.2, 0.5, 0.8],
-      rootMargin: "-10% 0px -10% 0px" // Focus on center area
-    });
-
-    const anchors = document.querySelectorAll('[data-spotlight-anchor]');
-    anchors.forEach(a => observer.observe(a));
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Also update on resize to handle orientation changes
+    window.addEventListener('resize', handleScroll);
 
     return () => {
-      observer.disconnect();
-      clearTimeout(timeoutId);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
     };
   }, [isMobile, mouseX, mouseY, radiusValue]);
 
@@ -202,7 +171,6 @@ export function EvervaultBackground({
       const clientX = event.clientX - left;
       const clientY = event.clientY - top;
 
-      // Small buffer to keep cursor active near edges
       const buffer = 50;
       if (
         clientX >= -buffer &&
@@ -225,12 +193,12 @@ export function EvervaultBackground({
     };
   }, [isHovered, mouseX, mouseY, isMobile]);
 
-  // Separate effect for container-scoped events (Touch)
+  // Separate effect for container-scoped events (Touch on Desktop)
   useEffect(() => {
-    if (isMobile) return; // Disable on mobile
-
+    if (isMobile) return;
     const container = containerRef.current;
     if (!container) return;
+
 
     const handleTouchMove = (e: TouchEvent) => {
       if (!boundsRef.current) return;
