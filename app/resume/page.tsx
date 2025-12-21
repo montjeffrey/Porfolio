@@ -18,28 +18,16 @@ const resumeTypes = [
     color: "text-blue-400",
   },
   {
-    id: "public-info",
-    title: "Public Information Specialist Resume",
-    description: "For: Digital Communications, Content Management roles",
+    id: "general",
+    title: "General Resume",
+    description: "For: Business Analysis, Project Management, Operations roles",
     highlights: [
-      "CMS experience",
-      "Public communication",
-      "Document management",
-    ],
-    icon: Newspaper,
-    color: "text-green-400",
-  },
-  {
-    id: "solutions-engineer",
-    title: "Solutions Engineer Resume",
-    description: "For: Hybrid technical/business roles",
-    highlights: [
-      "Operational experience",
-      "Technical skills",
-      "Business impact",
+      "Process optimization",
+      "Team leadership",
+      "Strategic planning",
     ],
     icon: Briefcase,
-    color: "text-primary",
+    color: "text-green-400",
   },
 ];
 
