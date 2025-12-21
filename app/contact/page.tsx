@@ -15,6 +15,8 @@ const projectTypes = [
 
 const contactMethods = ["Email", "Phone", "LinkedIn"];
 
+import { EvervaultBackground } from "@/components/ui/evervault-background";
+
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: "",
@@ -57,22 +59,28 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-dark pt-8 pb-20">
+    <div className="min-h-screen bg-bg-dark pb-20">
+      {/* Hero Header with Evervault */}
+      <div className="relative w-full h-[40vh] min-h-[400px] flex items-center justify-center overflow-hidden mb-16">
+        <EvervaultBackground className="absolute inset-0" />
+        <div className="relative z-10 max-w-4xl mx-auto px-6 w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center bg-bg-elevated/50 backdrop-blur-md border border-primary/20 rounded-2xl p-8 md:p-12 shadow-2xl"
+          >
+            <h1 className="text-4xl md:text-6xl font-serif text-secondary mb-6">
+              Let&apos;s Build Something Together
+            </h1>
+            <p className="text-lg md:text-xl text-secondary/80 leading-relaxed">
+              Whether you have a project in mind, need a technical solution for your business, or want to discuss how my unique background can benefit your team, I&apos;d love to hear from you.
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto px-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-5xl md:text-6xl font-serif text-secondary mb-6">
-            Let's Build Something Together
-          </h1>
-          <p className="text-xl text-secondary/80 max-w-3xl mx-auto leading-relaxed">
-            Whether you have a project in mind, need a technical solution for your business, or want to discuss how my unique background can benefit your team, I'd love to hear from you.
-          </p>
-        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Contact Information */}

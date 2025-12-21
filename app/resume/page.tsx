@@ -51,12 +51,14 @@ const coreCompetencies = [
   "Business Acumen: CRM management, process optimization, ROI focus",
 ];
 
+import { EvervaultBackground } from "@/components/ui/evervault-background";
+
 export default function ResumeHubPage() {
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
 
   const handleDownload = (resumeId: string, action: "view" | "download") => {
     const pdfPath = `/resumes/${resumeId}.pdf`;
-    
+
     if (action === "download") {
       // Create a temporary anchor element to trigger download
       const link = document.createElement("a");
@@ -72,25 +74,31 @@ export default function ResumeHubPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-dark pt-8 pb-20">
+    <div className="min-h-screen bg-bg-dark pb-20">
+      {/* Hero Header with Evervault */}
+      <div className="relative w-full h-[40vh] min-h-[400px] flex items-center justify-center overflow-hidden mb-16">
+        <EvervaultBackground className="absolute inset-0" />
+        <div className="relative z-10 max-w-4xl mx-auto px-6 w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center bg-bg-elevated/50 backdrop-blur-md border border-primary/20 rounded-2xl p-8 md:p-12 shadow-2xl"
+          >
+            <h1 className="text-4xl md:text-6xl font-serif text-secondary mb-6">
+              Resume Hub
+            </h1>
+            <p className="text-lg md:text-xl text-secondary/80 leading-relaxed">
+              Tailored Resumes for Different Opportunities
+            </p>
+            <p className="text-base md:text-lg text-secondary/60 mt-4">
+              I maintain specialized versions of my resume to best match different role requirements. Select the version that aligns with your needs:
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto px-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-5xl md:text-6xl font-serif text-secondary mb-6">
-            Resume Hub
-          </h1>
-          <p className="text-xl text-secondary/80 max-w-3xl mx-auto leading-relaxed">
-            Tailored Resumes for Different Opportunities
-          </p>
-          <p className="text-lg text-secondary/60 max-w-2xl mx-auto mt-4">
-            I maintain specialized versions of my resume to best match different role requirements. Select the version that aligns with your needs:
-          </p>
-        </motion.div>
 
         {/* Resume Options */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">

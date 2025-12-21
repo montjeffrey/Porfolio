@@ -92,24 +92,32 @@ const technicalSkills = [
   },
 ];
 
+import { EvervaultBackground } from "@/components/ui/evervault-background";
+
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-bg-dark pt-8 pb-20">
+    <div className="min-h-screen bg-bg-dark pb-20">
+      {/* Hero Header with Evervault */}
+      <div className="relative w-full h-[40vh] min-h-[400px] flex items-center justify-center overflow-hidden mb-20">
+        <EvervaultBackground className="absolute inset-0" />
+        <div className="relative z-10 max-w-4xl mx-auto px-6 w-full">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center bg-bg-elevated/50 backdrop-blur-md border border-primary/20 rounded-2xl p-8 md:p-12 shadow-2xl"
+          >
+            <h1 className="text-4xl md:text-6xl font-serif text-secondary mb-6">
+              About Me
+            </h1>
+            <p className="text-xl md:text-2xl text-secondary/80 leading-relaxed">
+              From Circuit Boards to Dashboards
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto px-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-20"
-        >
-          <h1 className="text-5xl md:text-6xl font-serif text-secondary mb-6">
-            About Me
-          </h1>
-          <p className="text-2xl text-secondary/80 max-w-3xl mx-auto leading-relaxed">
-            From Circuit Boards to Dashboards
-          </p>
-        </motion.div>
 
         {/* Professional Journey Timeline */}
         <section className="mb-20">
@@ -127,9 +135,8 @@ export default function AboutPage() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className={`flex flex-col md:flex-row gap-8 items-start ${
-                    index % 2 === 1 ? "md:flex-row-reverse" : ""
-                  }`}
+                  className={`flex flex-col md:flex-row gap-8 items-start ${index % 2 === 1 ? "md:flex-row-reverse" : ""
+                    }`}
                 >
                   <div className="flex-1 bg-bg-elevated rounded-2xl p-8 border border-primary/20">
                     <div className="flex items-center gap-4 mb-4">
