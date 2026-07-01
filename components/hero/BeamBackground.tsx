@@ -1,0 +1,464 @@
+"use client";
+
+import React, { useRef, useEffect } from 'react';
+import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
+
+interface BeamBackgroundProps {
+  isMobile: boolean;
+  tier: 'flagship' | 'high';
+}
+
+const BeamBackground: React.FC<BeamBackgroundProps> = ({ isMobile, tier }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Refs for smooth parameter transitions
+  const paramsRef = useRef({
+    amp: 0,              // Start with no wave (grow into it)
+    speed: 0.4,
+    opacity: 0,          // Start invisible (fade in)
+    falloff: 0.005,      // Start with "bloom" wide wave
+    expansion: -1.1,     // Start collapsed at center
+    bloomStrength: 0,    // Track bloom intensity dynamically
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    while (container.firstChild) {
+      container.removeChild(container.firstChild);
+    }
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: false,
+      alpha: false,
+      powerPreference: 'high-performance',
+      precision: tier === 'flagship' ? 'mediump' : 'highp', // mediump saves GPU cycles on mobile
+    });
+
+    // Aggressive pixel ratio optimization for mobile
+    const pixelRatio = tier === 'flagship' ?
+      Math.min(window.devicePixelRatio, 1.0) : // 1.0 for maximum mobile performance
+      Math.min(window.devicePixelRatio, 2.0);
+    renderer.setPixelRatio(pixelRatio);
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setClearColor(0x0d0d0d, 1);
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d0d0d);
+
+    const camera = new THREE.OrthographicCamera();
+
+    // Optimized for smooth 60fps on flagship mobile - reduced dot count, lighter bloom
+    const TIER_CONFIG = {
+      flagship: {
+        grid: { cols: 35, rows: 35, dotRadius: 0.048, spacing: 0.85, segments: 3 }, // 35x35 = 1,225 dots (larger dots, wider spacing)
+        bloom: { strength: 0.12, radius: 0.15, threshold: 0.6, enabled: true }, // Minimal bloom
+        rgbShift: { amount: 0, enabled: false },
+        pixelRatio: 1.0
+      },
+      high: {
+        grid: { cols: 100, rows: 100, dotRadius: 0.025, spacing: 0.55, segments: 8 },
+        bloom: { strength: 0.5, radius: 0.9, threshold: 0.2, enabled: true },
+        rgbShift: { amount: 0.002, enabled: true },
+        pixelRatio: 2.0
+      }
+    };
+
+    const config = TIER_CONFIG[tier];
+
+    // Initialize bloom strength target based on tier
+    paramsRef.current.bloomStrength = config.bloom.strength;
+
+    // Setup Post-Processing with tiered settings
+    let composer: EffectComposer | null = null;
+    let rgbShift: ShaderPass | null = null;
+    let bloom: UnrealBloomPass | null = null;
+
+    const renderPass = new RenderPass(scene, camera);
+
+    // Only enable bloom if configured
+    if (config.bloom.enabled) {
+      bloom = new UnrealBloomPass(
+        new THREE.Vector2(container.clientWidth, container.clientHeight),
+        config.bloom.strength,
+        config.bloom.radius,
+        config.bloom.threshold
+      );
+    }
+
+    // Only enable RGB shift if configured (disabled for flagship mobile)
+    if (config.rgbShift.enabled) {
+      rgbShift = new ShaderPass(RGBShiftShader);
+      rgbShift.uniforms['amount'].value = config.rgbShift.amount;
+      rgbShift.uniforms['angle'].value = Math.PI / 4;
+    }
+
+    composer = new EffectComposer(renderer);
+    composer.addPass(renderPass);
+    if (bloom) composer.addPass(bloom);
+    if (rgbShift) composer.addPass(rgbShift);
+
+    // Grid configuration based on tier
+    const GRID = {
+      cols: config.grid.cols,
+      rows: config.grid.rows,
+      jitter: 0.25,
+      hexOffset: 0.5,
+      dotRadius: config.grid.dotRadius,
+      spacing: config.grid.spacing
+    };
+
+    const total = GRID.cols * GRID.rows;
+    const geometry = new THREE.CircleGeometry(GRID.dotRadius, config.grid.segments);
+
+    // Use additive blending for glowing beam aesthetic
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xe77d22,
+      blending: THREE.AdditiveBlending,
+      opacity: tier === 'flagship' ? 0.85 : 1.0, // Slightly lower for better mobile perf
+      transparent: tier === 'flagship',
+      depthWrite: false // Optimization: skip depth buffer writes for transparent objects
+    });
+
+    const dots = new THREE.InstancedMesh(geometry, material, total);
+    dots.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(dots);
+
+    const basePos = new Float32Array(total * 2);
+    const distArr = new Float32Array(total);
+
+    // Direct buffer access for maximum performance (bypasses setMatrixAt overhead)
+    const matrixArray = dots.instanceMatrix.array as Float32Array;
+
+    let xOffset = (GRID.cols - 1) * GRID.spacing * 0.5;
+    let yOffset = (GRID.rows - 1) * GRID.spacing * 0.5;
+
+    // Synchronous initialization for instant startup - fixes "laggy" initial load
+    for (let idx = 0; idx < total; idx++) {
+      const r = Math.floor(idx / GRID.cols);
+      const c = idx % GRID.cols;
+
+      let x = c * GRID.spacing - xOffset;
+      let y = r * GRID.spacing - yOffset;
+      y += (c % 2) * GRID.hexOffset * GRID.spacing;
+      x += (Math.random() - 0.5) * GRID.jitter;
+      y += (Math.random() - 0.5) * GRID.jitter;
+      basePos[idx * 2 + 0] = x;
+      basePos[idx * 2 + 1] = y;
+      const len = Math.hypot(x, y);
+      distArr[idx] = len;
+
+      // Note: We don't set initial matrix here because the animate loop
+      // will immediately update all matrices on the first frame using
+      // direct buffer access, which is much faster.
+    }
+
+
+
+    const clock = new THREE.Clock();
+    let animationFrameId: number;
+    let lastFrameTime = performance.now();
+    const targetFrameTime = tier === 'flagship' ? 1000 / 60 : 1000 / 120; // 60fps for mobile, 120fps for desktop
+    const startTime = lastFrameTime;
+
+    // Pre-computed constants
+    const TWO_PI = Math.PI * 2;
+    const freq = 0.25;
+    const smoothing = 2.5;
+    const flushStartSeconds = 1.75; // Start anticipation earlier (was 2.5)
+    const anticipationDuration = 1.0;
+    const burstDuration = 0.8;
+    const idleBlendSeconds = 1.5;
+
+    const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
+    const smoothstep = (edge0: number, edge1: number, x: number) => {
+      const t = clamp01((x - edge0) / (edge1 - edge0));
+      return t * t * (3 - 2 * t);
+    };
+
+    const loadingTargets = {
+      amp: 0.6,
+      speed: 0.25,
+      opacity: tier === 'flagship' ? 0.6 : 0.75,
+      falloff: 0.02,
+      expansion: -0.2,
+      bloomStrength: config.bloom.strength
+    };
+
+    // Phase 1: Anticipation (Gather & Dim) through tighter contraction
+    const anticipationTargets = {
+      amp: 0.2,           // Calm before storm
+      speed: 1.5,         // Speed up significantly
+      opacity: 1.0,       // Full visibility
+      falloff: 0.03,      // Tighter beam
+      expansion: -0.8,    // Pull INWARD strongly (Gather)
+      bloomStrength: config.bloom.strength * 0.5 // Dim slightly
+    };
+
+    // Phase 2: Bloom Burst (Explosion)
+    const burstTargets = {
+      amp: 2.5,
+      speed: 0.1,         // Slow motion explosion look
+      opacity: 1.0,
+      falloff: 0.01,      // Wide beam
+      expansion: 1.5,     // Expand outward (but not offscreen)
+      bloomStrength: config.bloom.strength * 3.0 // FLASH!
+    };
+
+    const idleTargets = {
+      amp: 0.8,
+      speed: 0.4,
+      opacity: tier === 'flagship' ? 0.85 : 1.0,
+      falloff: 0.04,
+      expansion: 0,
+      bloomStrength: config.bloom.strength
+    };
+
+    function animate() {
+      animationFrameId = requestAnimationFrame(animate);
+
+      // Throttle frame rate for mobile to reduce CPU load
+      const now = performance.now();
+      const delta = now - lastFrameTime;
+
+      if (delta < targetFrameTime) {
+        return; // Skip this frame
+      }
+
+      lastFrameTime = now - (delta % targetFrameTime);
+
+      const dtSeconds = Math.min(delta / 1000, 0.1);
+      const lerpFactor = 1 - Math.exp(-smoothing * dtSeconds);
+      const elapsedSeconds = (now - startTime) / 1000;
+      const t = clock.getElapsedTime();
+
+      // --- TRANSITION LOGIC ---
+      // 1. Loading -> Anticipation
+      const anticipationStart = flushStartSeconds;
+      const anticipationEnd = anticipationStart + anticipationDuration;
+
+      // 2. Anticipation -> Burst
+      const burstStart = anticipationEnd;
+      const burstEnd = burstStart + burstDuration;
+
+      // 3. Burst -> Idle
+      const idleStart = burstEnd;
+      const idleEnd = idleStart + idleBlendSeconds;
+
+      const antiBlend = smoothstep(anticipationStart, anticipationEnd, elapsedSeconds);
+      const burstBlend = smoothstep(burstStart, burstEnd, elapsedSeconds);
+      const idleBlend = smoothstep(idleStart, idleEnd, elapsedSeconds);
+
+      // Multi-stage Lerp chain
+      // Current Target = Lerp(PreviousTarget, NextTarget, BlendFactor)
+
+      // Stage 1: Loading -> Anticipation
+      let targetAmp = THREE.MathUtils.lerp(loadingTargets.amp, anticipationTargets.amp, antiBlend);
+      let targetSpeed = THREE.MathUtils.lerp(loadingTargets.speed, anticipationTargets.speed, antiBlend);
+      let targetOpacity = THREE.MathUtils.lerp(loadingTargets.opacity, anticipationTargets.opacity, antiBlend);
+      let targetFalloff = THREE.MathUtils.lerp(loadingTargets.falloff, anticipationTargets.falloff, antiBlend);
+      let targetExpansion = THREE.MathUtils.lerp(loadingTargets.expansion, anticipationTargets.expansion, antiBlend);
+      let targetBloomStr = THREE.MathUtils.lerp(loadingTargets.bloomStrength, anticipationTargets.bloomStrength, antiBlend);
+
+      // Stage 2: -> Burst (Overwrites Stage 1 as flow progresses)
+      if (elapsedSeconds > anticipationStart) {
+        targetAmp = THREE.MathUtils.lerp(targetAmp, burstTargets.amp, burstBlend);
+        targetSpeed = THREE.MathUtils.lerp(targetSpeed, burstTargets.speed, burstBlend);
+        targetOpacity = THREE.MathUtils.lerp(targetOpacity, burstTargets.opacity, burstBlend);
+        targetFalloff = THREE.MathUtils.lerp(targetFalloff, burstTargets.falloff, burstBlend);
+        targetExpansion = THREE.MathUtils.lerp(targetExpansion, burstTargets.expansion, burstBlend);
+        targetBloomStr = THREE.MathUtils.lerp(targetBloomStr, burstTargets.bloomStrength, burstBlend);
+      }
+
+      // Stage 3: -> Idle
+      if (elapsedSeconds > burstStart) {
+        targetAmp = THREE.MathUtils.lerp(targetAmp, idleTargets.amp, idleBlend);
+        targetSpeed = THREE.MathUtils.lerp(targetSpeed, idleTargets.speed, idleBlend);
+        targetOpacity = THREE.MathUtils.lerp(targetOpacity, idleTargets.opacity, idleBlend);
+        targetFalloff = THREE.MathUtils.lerp(targetFalloff, idleTargets.falloff, idleBlend);
+        targetExpansion = THREE.MathUtils.lerp(targetExpansion, idleTargets.expansion, idleBlend);
+        targetBloomStr = THREE.MathUtils.lerp(targetBloomStr, idleTargets.bloomStrength, idleBlend);
+      }
+
+      // Smoothly interpolate current values towards targets (Lerp)
+      // Factor 0.04 gives a nice ease-out feel
+      paramsRef.current.amp += (targetAmp - paramsRef.current.amp) * lerpFactor;
+      paramsRef.current.speed += (targetSpeed - paramsRef.current.speed) * lerpFactor;
+      paramsRef.current.opacity += (targetOpacity - paramsRef.current.opacity) * lerpFactor;
+      paramsRef.current.falloff += (targetFalloff - paramsRef.current.falloff) * lerpFactor;
+      paramsRef.current.bloomStrength += (targetBloomStr - paramsRef.current.bloomStrength) * lerpFactor;
+      paramsRef.current.expansion += (targetExpansion - paramsRef.current.expansion) * lerpFactor;
+
+      const { amp: currentAmp, speed: currentSpeed, opacity: currentOpacity, falloff: currentFalloff, expansion: currentExpansion, bloomStrength: currentBloomStrength } = paramsRef.current;
+
+      // Update Bloom Strength dynamically
+      if (bloom) {
+        bloom.strength = currentBloomStrength;
+      }
+
+      // Update material opacity
+      material.opacity = currentOpacity;
+
+      const phase = (Math.sin(TWO_PI * t * freq) + 1) * 0.5;
+
+      if (rgbShift) {
+        rgbShift.uniforms['amount'].value = 0.0015 + phase * 0.003;
+      }
+
+      // Update instance matrices using direct buffer writes (faster than setMatrixAt)
+      for (let i = 0; i < total; i++) {
+        const x0 = basePos[i * 2 + 0];
+        const y0 = basePos[i * 2 + 1];
+        const dist = distArr[i];
+
+        // Use interpolated speed, amp, and falloff
+        const tt = t * currentSpeed - dist * currentFalloff;
+
+        // Base sine wave modulation
+        let k = 1 + Math.sin(TWO_PI * tt * freq) * currentAmp;
+
+        // Apply pure outward expansion
+        k += currentExpansion;
+
+        const px = x0 * k;
+        const py = y0 * k;
+
+        // Direct buffer write - only update translation (m12, m13) since scale/rotation are identity
+        const offset = i * 16;
+        matrixArray[offset] = 1;       // m0
+        matrixArray[offset + 5] = 1;   // m5
+        matrixArray[offset + 10] = 1;  // m10
+        matrixArray[offset + 12] = px; // m12 (x translation)
+        matrixArray[offset + 13] = py; // m13 (y translation)
+        matrixArray[offset + 15] = 1;  // m15
+      }
+      dots.instanceMatrix.needsUpdate = true;
+
+      if (composer) {
+        composer.render();
+      } else {
+        renderer.render(scene, camera);
+      }
+    }
+
+    const resizeCamera = () => {
+      if (!container) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      const aspect = w / h;
+      const worldHeight = 10;
+      const worldWidth = worldHeight * aspect;
+
+      camera.left = -worldWidth / 2;
+      camera.right = worldWidth / 2;
+      camera.top = worldHeight / 2;
+      camera.bottom = -worldHeight / 2;
+      camera.near = -100;
+      camera.far = 100;
+      camera.position.set(0, 0, 10);
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(w, h);
+
+      if (composer) {
+        composer.setSize(w, h);
+      }
+      if (rgbShift && rgbShift.uniforms['resolution']) {
+        rgbShift.uniforms['resolution'].value.set(w, h);
+      }
+      if (bloom) {
+        bloom.setSize(w, h);
+      }
+    };
+
+    const observer = new ResizeObserver(() => {
+      resizeCamera();
+    });
+    observer.observe(container);
+
+    resizeCamera();
+
+    // Shader Pre-compilation & Warmup to prevent initial stutter
+    // 1. Force shader compilation
+    renderer.compile(scene, camera);
+
+    // 2. Initial warmup render (invisible) to upload buffers to GPU
+    // Ensure it's invisible to avoid flash
+    const initialOpacity = material.opacity;
+    material.opacity = 0;
+
+    // Force a render cycle
+    if (composer) {
+      composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
+
+    // Restore opacity logic triggers in the loop, but reset just in case
+    material.opacity = initialOpacity;
+
+    const canvas = renderer.domElement;
+
+    // Pause the render loop while the tab is backgrounded so we stop holding GPU memory
+    // when nothing is visible — sustained off-screen usage is a common trigger for the
+    // mobile browser deciding to discard/reload the tab.
+    const handleVisibility = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      if (!document.hidden) {
+        lastFrameTime = performance.now();
+        animate();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // If the OS reclaims the WebGL context (memory pressure), recover instead of wedging.
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      window.cancelAnimationFrame(animationFrameId);
+    };
+    const handleContextRestored = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      lastFrameTime = performance.now();
+      animate();
+    };
+    canvas.addEventListener('webglcontextlost', handleContextLost as EventListener, false);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored as EventListener, false);
+
+    animate();
+
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      canvas.removeEventListener('webglcontextlost', handleContextLost as EventListener);
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored as EventListener);
+      if (container) {
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+      }
+      geometry.dispose();
+      material.dispose();
+      if (bloom) bloom.dispose();
+      if (composer) composer.dispose();
+      // Critical: actually release the GPU context. Without renderer.dispose() +
+      // forceContextLoss() the browser keeps the context and its bloom render targets
+      // alive long after unmount, accumulating across re-inits until iOS reloads the tab.
+      renderer.dispose();
+      renderer.forceContextLoss();
+    };
+  }, [isMobile, tier]);
+
+  return <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none" />;
+};
+
+export default React.memo(BeamBackground);

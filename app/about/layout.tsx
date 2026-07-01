@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About - Jeffrey Montoya",
+  title: "About",
   description: "Learn about Jeffrey Montoya's journey from Electrical Engineering to Solutions Engineering, combining operational expertise with technical innovation.",
 };
 

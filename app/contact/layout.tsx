@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Contact - Jeffrey Montoya",
+  title: "Contact",
   description: "Connect with Jeffrey Montoya for full-stack development, cloud solutions, or technical consulting. Based in Dover, NJ, open to remote opportunities.",
 };
 

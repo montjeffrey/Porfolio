@@ -7,7 +7,7 @@ import BrandStatement from "@/components/BrandStatement";
 import BottomCTA from "@/components/BottomCTA";
 
 export const metadata: Metadata = {
-  title: "Jeffrey Montoya - Solutions Engineer",
+  title: { absolute: "Jeffrey Montoya - Solutions Engineer" },
   description: "Solutions Engineer specializing in full-stack development, cloud architecture, and ML-powered applications. Bridging operations and innovation.",
 };
 
