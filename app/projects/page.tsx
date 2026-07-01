@@ -39,6 +39,21 @@ const projects = [
     href: "/projects/levelz-barber-studio",
   },
   {
+    title: "The Gen Z Mama",
+    techStack: ["Next.js", "React", "Tailwind CSS", "Sanity CMS"],
+    category: "Web Development",
+    status: "Live at thegenzmama.com",
+    description:
+      "Trust-first brand website for a licensed childcare provider in Wharton, NJ. A warm, hand-crafted design paired with a Sanity CMS blog and streamlined inquiry flow that turns visiting parents into booked families.",
+    features: [
+      "Sanity CMS blog the owner publishes to herself — no developer needed",
+      "Transparent pricing and side-by-side care package comparison",
+      "Credential badges and testimonials surfaced up front to build trust",
+      "Custom Tailwind design system with handwritten display typography",
+    ],
+    href: "/projects/the-gen-z-mama",
+  },
+  {
     title: "Automated Security Assessment Suite",
     techStack: ["Python", "JSON", "Markdown", "Wireshark"],
     category: "Security Tools",

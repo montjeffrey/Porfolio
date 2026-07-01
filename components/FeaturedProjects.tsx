@@ -20,6 +20,13 @@ const featuredProjects = [
     href: "/projects/levelz-barber-studio",
     type: "secondary",
   },
+  {
+    title: "The Gen Z Mama",
+    tags: ["Next.js", "Sanity CMS", "Brand Design"],
+    description: "A trust-first childcare brand site with a warm, hand-crafted design, self-serve CMS blog, and a streamlined inquiry flow that turns visiting parents into booked families.",
+    href: "/projects/the-gen-z-mama",
+    type: "secondary",
+  },
 ];
 
 import { DotBackground } from "@/components/ui/dot-background";
@@ -42,7 +49,7 @@ export default function FeaturedProjects() {
           Featured Projects
         </motion.h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {featuredProjects.map((project, index) => (
             <motion.div
               key={project.title}
