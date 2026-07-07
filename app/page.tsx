@@ -3,6 +3,7 @@ import Hero from "@/components/Hero";
 import AboutIntro from "@/components/AboutIntro";
 import SkillsBentoGrid from "@/components/SkillsBentoGrid";
 import FeaturedProjects from "@/components/FeaturedProjects";
+import BlueprintSection from "@/components/blueprint/BlueprintSection";
 import RoiCalculator from "@/components/roi/RoiCalculator";
 import BrandStatement from "@/components/BrandStatement";
 import BottomCTA from "@/components/BottomCTA";
@@ -19,6 +20,7 @@ export default function Home() {
       <AboutIntro />
       <SkillsBentoGrid />
       <FeaturedProjects />
+      <BlueprintSection />
       <RoiCalculator />
       <BrandStatement />
       <BottomCTA />
