@@ -79,7 +79,7 @@ const SkillCard = ({
 
 export default function SkillsBentoGrid() {
   return (
-    <section className="relative py-20 px-6 bg-bg-dark overflow-hidden min-h-[800px] group/section">
+    <section id="act-2" className="relative py-20 px-6 bg-bg-dark overflow-hidden min-h-[800px] group/section">
       {/* Evervault background effect - covers entire section */}
       <EvervaultBackground className="rounded-none" radius={450} />
 

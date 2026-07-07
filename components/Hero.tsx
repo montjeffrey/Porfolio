@@ -13,8 +13,9 @@ import { ResumeModal } from '@/components/ui/resume-modal';
 import { MobileScrollIndicator } from '@/components/ui/mobile-scroll-indicator';
 import { usePerformanceTier } from '@/hooks/use-performance-tier';
 import { useVoice } from '@/lib/alignment/use-voice';
-import { HERO_RECEDE } from '@/lib/parallax/constants';
+import { HERO_RECEDE, SPLASH_REVEAL_MS } from '@/lib/parallax/constants';
 import { useParallaxEnabled } from '@/lib/parallax/use-parallax-enabled';
+import { ScrollCue } from '@/components/ui/scroll-cue';
 import { MobileBeam } from './hero/MobileBeam';
 
 interface BeamBackgroundProps {
@@ -341,7 +342,7 @@ export default function Hero() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setContentVisible(true);
-    }, 5000); // Extended delay for smoother animation loading and immersive splash
+    }, SPLASH_REVEAL_MS); // Reveal content after the splash beat, then let the scroll cue take over
     return () => clearTimeout(timer);
   }, []);
 
@@ -446,6 +447,8 @@ export default function Hero() {
       <div className="block sm:hidden">
         <MobileScrollIndicator />
       </div>
+
+      <ScrollCue />
 
       <ResumeModal
         isOpen={isResumeModalOpen}
