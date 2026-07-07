@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import ScrollProgressBar from "@/components/ScrollProgressBar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,6 +28,7 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
+        <ScrollProgressBar />
         <ErrorBoundary>
           <Navbar />
           <main className="min-h-screen pt-16">
