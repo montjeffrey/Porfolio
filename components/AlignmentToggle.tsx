@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useAlignmentStore, type AlignmentId } from "@/lib/alignment/store";
+import { track } from "@/lib/telemetry";
 
 // Swatch preview values — hard-coded to match each alignment's --accent-primary
 // token (see lib/alignment/alignments.json). These are the only literal hex
@@ -22,12 +23,17 @@ export default function AlignmentToggle() {
   const alignment = useAlignmentStore((state) => state.alignment);
   const setAlignment = useAlignmentStore((state) => state.setAlignment);
 
+  const handleSelect = (id: AlignmentId) => {
+    setAlignment(id);
+    track("alignment_toggle", "interact");
+  };
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     const delta = event.key === "ArrowRight" ? 1 : -1;
     const nextIndex = (index + delta + OPTIONS.length) % OPTIONS.length;
-    setAlignment(OPTIONS[nextIndex].id);
+    handleSelect(OPTIONS[nextIndex].id);
   };
 
   return (
@@ -46,7 +52,7 @@ export default function AlignmentToggle() {
             aria-checked={isActive}
             aria-label={option.label}
             tabIndex={isActive ? 0 : -1}
-            onClick={() => setAlignment(option.id)}
+            onClick={() => handleSelect(option.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
             className="relative flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
             style={{ color: isActive ? "var(--surface-0)" : "var(--text-muted)" }}

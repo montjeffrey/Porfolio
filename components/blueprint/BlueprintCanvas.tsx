@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePerformanceTier } from "@/hooks/use-performance-tier";
 import { connectedClosure } from "@/lib/blueprint/closure";
 import { canvasSize, edgePath, nodeRect } from "@/lib/blueprint/layout";
+import { track } from "@/lib/telemetry";
 import type { BlueprintGraph, PulseKind } from "@/lib/blueprint/types";
 import NodeGlyph from "./NodeGlyph";
 import NodeInspector from "./NodeInspector";
@@ -24,6 +25,10 @@ export default function BlueprintCanvas({ graph }: BlueprintCanvasProps) {
   const animationsEnabled = tier !== "low";
 
   useEffect(() => {
+    track("visualizer", "open");
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setSelectedId(null);
@@ -32,6 +37,11 @@ export default function BlueprintCanvas({ graph }: BlueprintCanvasProps) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const handleSelect = (id: string) => {
+    setSelectedId(id);
+    track("visualizer", "interact");
+  };
 
   const { w, h } = canvasSize(graph);
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
@@ -88,7 +98,7 @@ export default function BlueprintCanvas({ graph }: BlueprintCanvasProps) {
             node={node}
             selected={selectedId === node.id}
             dimmed={closure !== null && !closure.has(node.id)}
-            onSelect={(id) => setSelectedId(id)}
+            onSelect={handleSelect}
           />
         ))}
       </svg>

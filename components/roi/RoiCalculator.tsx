@@ -1,17 +1,34 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useRoiStore } from "@/lib/roi/store";
+import { track } from "@/lib/telemetry";
 import RoiSliderRow from "./RoiSliderRow";
 import RoiOutputPanel from "./RoiOutputPanel";
 import ShowTheMath from "./ShowTheMath";
 
 export default function RoiCalculator() {
   const router = useRouter();
+  const inputs = useRoiStore((state) => state.inputs);
   const armSnapshot = useRoiStore((state) => state.armSnapshot);
+  const hasMounted = useRef(false);
+
+  // RoiSliderRow (not in this task's file list) owns the slider onChange
+  // handlers, so slider interaction is tracked here instead: any change to
+  // the store's `inputs` object identity (triggered by setInput) fires this
+  // effect after the initial mount.
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+    track("roi_calculator", "interact");
+  }, [inputs]);
 
   const handleSendAnalysis = () => {
     armSnapshot();
+    track("roi_calculator", "complete");
     router.push("/contact");
   };
 
