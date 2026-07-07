@@ -473,6 +473,141 @@ paybackMonths       = grossAnnualSavings <= 0 ? Infinity : IMPLEMENTATION_COST /
 
 ---
 
+## PHASE 5 — Parallax Experience System
+
+Design rationale lives in `05-parallax-experience.md`. Executor rules for this phase, in addition to the global ground rules: animate ONLY `transform` and `opacity` (never blur, filter, width, height, top, or left); use Framer Motion's `useScroll`/`useTransform`/`MotionValue` APIs — do NOT add any new npm dependency; every color must be a `var(--token)` reference, no hex literals.
+
+### T44 — Parallax constants module
+- **Files:** `lib/parallax/constants.ts` (new)
+- **Steps:** Create the file with exactly:
+```ts
+export const DEPTH = {
+  far: -0.12,
+  mid: -0.28,
+  near: -0.45,
+  lift: 0.10,
+} as const;
+export type DepthName = keyof typeof DEPTH;
+export const MOBILE_DISTANCE_SCALE = 0.4;
+export const HERO_RECEDE = {
+  scale: [1, 1.18] as [number, number],
+  opacity: [1, 0] as [number, number],
+  contentY: [0, -120] as [number, number],
+};
+export const SPLASH_REVEAL_MS = 1800;
+```
+- **Done when:** `npm run build` passes with these exact exported names.
+
+### T45 — Capability gate hook
+- **Depends on:** T44
+- **Files:** `lib/parallax/use-parallax-enabled.ts` (new)
+- **Steps:** Export `type ParallaxMode = "full" | "reduced" | "off"` and `useParallaxEnabled(): ParallaxMode`:
+  1. Import `useReducedMotion` from `framer-motion` and `usePerformanceTier` from `@/hooks/use-performance-tier`.
+  2. If `useReducedMotion()` returns true → `"off"`.
+  3. Else map tier: `"high"` or `"flagship"` → `"full"`; `"medium"` → `"reduced"`; `"low"` → `"off"`.
+  4. Both hooks must be called unconditionally (React rules of hooks) — do the branching after both calls.
+- **Done when:** `npm run build` passes.
+
+### T46 — ScrollScene, ParallaxLayer, ProgressReveal primitives
+- **Depends on:** T44, T45
+- **Files:** `lib/parallax/scroll-scene.tsx` (new)
+- **Steps:** One client-component file (`"use client"`) exporting three components and nothing else:
+  1. `SceneContext = createContext<{ progress: MotionValue<number>; mode: ParallaxMode } | null>(null)` (not exported).
+  2. `ScrollScene({ children, className })`: renders `<div ref={ref} className={cn("relative", className)}>`; calls `useScroll({ target: ref, offset: ["start end", "end start"] })`; calls `useParallaxEnabled()`; provides `{ progress: scrollYProgress, mode }` via context.
+  3. `ParallaxLayer({ depth, scaleRange, opacityRange, className, children })` where `depth: DepthName`: reads context (render children in a plain div if context is null or `mode === "off"`). Compute `travel = DEPTH[depth] * 300 * (mode === "reduced" ? MOBILE_DISTANCE_SCALE : 1)`; `y = useTransform(progress, [0, 1], [-travel, travel])`; optional `scale`/`opacity` from `useTransform(progress, [0, 1], range)` when the range props are given. Render `<motion.div style={{ y, scale, opacity, willChange: "transform" }} className={className}>`. All `useTransform` calls must be unconditional — pass identity ranges `[1, 1]` when a range prop is absent.
+  4. `ProgressReveal({ start, end, yFrom = 24, className, children })` with `0 <= start < end <= 1`: reads context; `opacity = useTransform(progress, [start, end], [0, 1])`, `y = useTransform(progress, [start, end], [yFrom, 0])`, clamped (default clamping is fine). When `mode === "off"` render children plainly.
+- **Done when:** `npm run build` passes; importing `{ ScrollScene, ParallaxLayer, ProgressReveal }` from `@/lib/parallax/scroll-scene` compiles.
+
+### T47 — Scroll progress hairline
+- **Depends on:** T45
+- **Files:** `components/ScrollProgressBar.tsx` (new), `app/layout.tsx`
+- **Steps:**
+  1. Client component: `const { scrollYProgress } = useScroll()` (no target = whole page); `scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 30 })`; render `<motion.div aria-hidden className="fixed top-0 left-0 right-0 h-[2px] z-[60] origin-left" style={{ scaleX, backgroundColor: "var(--accent-primary)" }} />`. If `useParallaxEnabled() === "off"`, render null.
+  2. Mount `<ScrollProgressBar />` in `app/layout.tsx` immediately inside `<body>`, before the navbar.
+- **Done when:** a thin accent bar tracks scroll on every page; `npm run build` passes.
+
+### T48 — Act I: hero recede
+- **Depends on:** T44, T45
+- **Files:** `components/Hero.tsx`
+- **Steps:** Modify only the outer return of the `Hero` component (do NOT touch `BeamBackground`, `MobileBeam`, or any Three.js code):
+  1. Add a `heroRef` on the root `<div>` and `const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] })`.
+  2. Wrap the existing background block (`{showHeavyBeam ? ... : ...}`) in `<motion.div className="absolute inset-0" style={{ scale: bgScale, opacity: bgOpacity, willChange: "transform" }}>` where `bgScale = useTransform(scrollYProgress, [0, 1], HERO_RECEDE.scale)` and `bgOpacity = useTransform(scrollYProgress, [0, 1], HERO_RECEDE.opacity)`.
+  3. Add `style={{ y: contentY }}` to the existing content wrapper (`<div className="relative z-10 ...">` → make it `motion.div`) where `contentY = useTransform(scrollYProgress, [0, 1], HERO_RECEDE.contentY)`.
+  4. Gate: when `useParallaxEnabled() !== "full"`, pass static values (`scale: 1, opacity: 1, y: 0`) — compute the transforms unconditionally, choose in the `style` prop.
+- **Done when:** scrolling down from the top makes the beam grow slightly and fade while the headline lifts away; scrolling back reverses it; with OS reduced-motion on, nothing moves; `npm run build` passes.
+
+### T49 — Hero splash rework + scroll cue
+- **Depends on:** T44
+- **Files:** `components/Hero.tsx`, `components/ui/scroll-cue.tsx` (new)
+- **Steps:**
+  1. In `Hero.tsx`, change the splash `setTimeout` from `5000` to `SPLASH_REVEAL_MS` (import from `@/lib/parallax/constants`).
+  2. New `ScrollCue` client component: a `<button>` fixed at bottom-center of the hero (`absolute bottom-8 left-1/2 -translate-x-1/2 z-10`), containing a chevron-down icon from `lucide-react` inside a `motion.span` animating `y: [0, 8, 0]` over 1.6s repeat Infinity (skip the animation when `useReducedMotion()`); `aria-label="Descend into the work"`; onClick: `document.getElementById("act-2")?.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth" })`.
+  3. Render `<ScrollCue />` in the hero (desktop and mobile), and add `id="act-2"` to the first section after the hero in `app/page.tsx` (the skills bento section).
+- **Done when:** content appears at ~1.8s, the chevron pulses, clicking it scrolls to the skills section; `npm run build` passes.
+
+### T50 — Act III: ParallaxDotField (Featured Projects)
+- **Depends on:** T46
+- **Files:** `components/ui/parallax-dot-field.tsx` (new), `components/FeaturedProjects.tsx`
+- **Steps:**
+  1. New `ParallaxDotField` component (no props): renders three absolutely-positioned planes inside `<div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-bg-elevated">`, each inset by `-15%` (`className="absolute -inset-[15%]"`) so parallax travel never exposes edges:
+     - `<ParallaxLayer depth="far">` — coarse dots: `bg-[radial-gradient(var(--text-primary)_1.5px,transparent_1.5px)] [background-size:48px_48px] opacity-[0.04]`
+     - `<ParallaxLayer depth="mid">` — fine dots: `bg-[radial-gradient(var(--text-primary)_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.05]` with the same radial mask as the current `DotBackground`
+     - `<ParallaxLayer depth="near" opacityRange={[0.06, 0.14]}>` — accent wash: `bg-[radial-gradient(ellipse_at_center,var(--accent-primary),transparent_65%)]`
+  2. In `FeaturedProjects.tsx`: wrap the section content in `<ScrollScene>` (it becomes the section root), replace `<DotBackground />` with `<ParallaxDotField />`. Keep `components/ui/dot-background.tsx` untouched (still used elsewhere or by future pages).
+- **Done when:** the three planes visibly separate while scrolling through Featured Projects (coarse dots slowest); no horizontal scrollbar appears at any scroll position; `npm run build` passes.
+
+### T51 — Act II: skills bento scroll choreography
+- **Depends on:** T46
+- **Files:** `components/SkillsBentoGrid.tsx`
+- **Steps:** Read the file first to learn its card structure, then:
+  1. Wrap the section root in `<ScrollScene>`.
+  2. Wrap the existing `<EvervaultBackground className="rounded-none" radius={450} />` in `<ParallaxLayer depth="mid" className="absolute -inset-[15%]">` (keep the Evervault component itself unmodified).
+  3. Wrap each skill card in `<ProgressReveal start={s} end={s + 0.25}>` where `s = 0.15 + index * 0.06` (scroll-scrubbed stagger). If the cards currently use time-based Framer `whileInView` animations, remove those in favor of the reveal wrapper.
+- **Done when:** cards rise in sequence as the section scrolls into view and sink back when scrolling up; scramble field drifts slower than the cards; `npm run build` passes.
+
+### T52 — Act IV: pinned brand statement
+- **Depends on:** T46
+- **Files:** `components/BrandStatement.tsx`
+- **Steps:** Read the file first. Then restructure:
+  1. Section root becomes `<ScrollScene className="relative h-[200vh]">` (`full` mode only — see step 4).
+  2. Inside it, a sticky frame: `<div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden">` containing the existing `EvervaultBackground` (wrapped in `<ParallaxLayer depth="far" className="absolute -inset-[15%]">`) and the statement.
+  3. Replace the statement copy with five word-groups, each in `<ProgressReveal>` with windows `[0.10,0.25]`, `[0.25,0.40]`, `[0.40,0.55]`, `[0.55,0.70]`, `[0.70,0.85]` and `yFrom={16}`. Groups (exact text): "Most sites describe the work." / "This one is the work." / "Every plane you just scrolled through" / "is running the same discipline" / "I bring to your systems." Render as stacked lines, `font-serif`, sizes matching the section's current headline scale; revealed groups at full `--text-primary`, unrevealed naturally at opacity 0.
+  4. Gate: when `useParallaxEnabled() !== "full"`, render the section at normal height (`h-auto min-h-[60vh]`, no sticky) with all five lines visible and a single `whileInView` fade on the block.
+- **Done when:** in `full` mode the section pins for two viewport-heights while lines reveal with scroll and un-reveal when reversing; keyboard Page-Down passes through without trapping; in `reduced`/`off` modes the section is normal-flow; `npm run build` passes.
+
+### T53 — Act V: footer/CTA arrival
+- **Depends on:** T46
+- **Files:** `components/BottomCTA.tsx`, `components/Footer.tsx`
+- **Steps:** Read both files first.
+  1. `BottomCTA.tsx`: wrap root in `<ScrollScene>`; wrap CTA content in `<ParallaxLayer depth="lift">`; add an overline above the existing headline: `<p className="font-mono text-sm tracking-widest uppercase" style={{ color: "var(--accent-primary)" }}>You just experienced the demo.</p>`.
+  2. `Footer.tsx`: wrap the existing `EvervaultBackground` in `<ParallaxLayer depth="far" className="absolute -inset-[15%]">` inside a `<ScrollScene>` on the footer root.
+- **Done when:** the CTA drifts up slightly faster than scroll on arrival, the overline renders, footer scramble parallaxes; `npm run build` passes.
+
+### T54 — About page: spotlight scene
+- **Depends on:** T46
+- **Files:** `components/AboutIntro.tsx`
+- **Steps:** Wrap the component root in `<ScrollScene>` and the existing `<SpotlightBackground />` in `<ParallaxLayer depth="far" className="absolute -inset-[15%] -z-10">`. Do not modify `spotlight-background.tsx` itself (its cursor-follow and mobile-static branches stay exactly as they are).
+- **Done when:** the ambient spotlight field drifts subtly on scroll on the About page; mobile still gets the static gradient; `npm run build` passes.
+
+### T55 — Parallax completion telemetry
+- **Depends on:** T41, T53
+- **Files:** `components/BottomCTA.tsx`
+- **Steps:** In `BottomCTA`, add a `useEffect` with an `IntersectionObserver` (threshold 0.5) on the section root that calls `track("visualizer", "complete")` once, then disconnects. Guard with a `useRef<boolean>` so it can never fire twice per mount.
+- **Done when:** one telemetry beacon fires when the visitor reaches the bottom CTA; `npm run build` passes.
+
+### T56 — Degradation matrix QA pass
+- **Depends on:** T47–T54
+- **Files:** none (verification task; fixes go in the files named by the failing check's originating task)
+- **Steps:** Verify each cell of this matrix in the browser and fix regressions in place:
+  1. Desktop + motion allowed → all five acts choreograph; DevTools Performance shows no layout thrash during scroll (no purple "Layout" bursts while scrubbing).
+  2. Desktop + OS reduced-motion → zero movement anywhere: no hairline, no recede, no pin (Act IV normal-flow), no chevron pulse; content all visible.
+  3. Mobile emulation (medium tier: set DevTools to a mid device or temporarily force the hook) → travel distances visibly shorter; Act IV normal-flow; no horizontal overflow at 360px width.
+  4. `npm run build` and `npm test` both pass.
+  5. Grep check: `grep -rn "blur\|filter" components/ui/parallax-dot-field.tsx lib/parallax/` returns nothing (compositor-only rule held).
+- **Done when:** all five checks pass with evidence noted in the task's commit message.
+
+---
+
 ## Dependency graph (execution lanes)
 
 Lanes can be executed in parallel by separate workers after T01–T02 land:
@@ -482,3 +617,4 @@ Lanes can be executed in parallel by separate workers after T01–T02 land:
 - **Lane C (ROI):** T21 → T22 → T23 → T24 → T25/T26/T27 → T28 → T29 → T30 (T30 also needs Lane B's T13)
 - **Lane D (visualizer):** T31 → T32/T33/T35 → T34 → T36 → T37/T38 → T39 (T37's CTA needs T28 mounted)
 - **Lane E (hardening):** T41 → T42; T43 last.
+- **Lane F (parallax):** T44 → T45 → T46 → {T47, T48, T49, T50, T51, T52, T53, T54} → T55 (needs Lane E's T41) → T56 last. Requires Lane A's T03–T05 (color tokens) only; independent of Lanes B–D.
