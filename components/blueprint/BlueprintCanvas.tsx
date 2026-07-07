@@ -5,6 +5,7 @@ import { connectedClosure } from "@/lib/blueprint/closure";
 import { canvasSize, edgePath, nodeRect } from "@/lib/blueprint/layout";
 import type { BlueprintGraph } from "@/lib/blueprint/types";
 import NodeGlyph from "./NodeGlyph";
+import NodeInspector from "./NodeInspector";
 
 interface BlueprintCanvasProps {
   graph: BlueprintGraph;
@@ -77,6 +78,11 @@ export default function BlueprintCanvas({ graph }: BlueprintCanvasProps) {
           />
         ))}
       </svg>
+
+      <NodeInspector
+        node={selectedId ? nodesById.get(selectedId) ?? null : null}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }
