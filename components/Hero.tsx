@@ -12,6 +12,7 @@ import { motion } from 'framer-motion';
 import { ResumeModal } from '@/components/ui/resume-modal';
 import { MobileScrollIndicator } from '@/components/ui/mobile-scroll-indicator';
 import { usePerformanceTier } from '@/hooks/use-performance-tier';
+import { useVoice } from '@/lib/alignment/use-voice';
 import { MobileBeam } from './hero/MobileBeam';
 
 interface BeamBackgroundProps {
@@ -318,6 +319,8 @@ export default function Hero() {
   const [contentVisible, setContentVisible] = useState(false);
 
   const tier = usePerformanceTier(); // Use our new hook
+  const heroHeadline = useVoice('hero.headline');
+  const heroSub = useVoice('hero.sub');
 
   // Only desktop ('high') gets the heavy BeamBackground (UnrealBloom post-processing +
   // per-frame CPU matrix loop). ALL mobile tiers — including flagship phones — use the
@@ -380,10 +383,10 @@ export default function Hero() {
             className="space-y-8 sm:space-y-6"
           >
             <h1 className="text-[clamp(2rem,5vw,6rem)] font-serif text-secondary leading-tight px-4 sm:px-2">
-              Solutions Engineer: Where Operations Meet Innovation
+              {heroHeadline}
             </h1>
             <p className="text-[clamp(1rem,2vw,1.875rem)] text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto px-4">
-              Bridging the gap between business operations and technical implementation through full-stack development, cloud infrastructure, and data-driven solutions.
+              {heroSub}
             </p>
             <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 text-[clamp(2.5rem,4vw,3.5rem)] font-serif mt-8 sm:mt-12 min-h-[4rem]">
               <span className="text-secondary">Specializing in</span>

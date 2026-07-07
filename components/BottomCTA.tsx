@@ -3,8 +3,11 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Mail, FolderOpen } from "lucide-react";
+import { useVoice } from "@/lib/alignment/use-voice";
 
 export default function BottomCTA() {
+  const ctaHeadline = useVoice("cta.bottom");
+
   return (
     <section className="py-20 px-6 bg-bg-elevated">
       <div className="max-w-4xl mx-auto text-center">
@@ -16,7 +19,7 @@ export default function BottomCTA() {
           className="space-y-8"
         >
           <h2 className="text-4xl md:text-5xl font-serif text-secondary mb-6">
-            Ready to Build Something Amazing?
+            {ctaHeadline}
           </h2>
 
           <p className="text-xl text-secondary/80 leading-relaxed max-w-2xl mx-auto">
