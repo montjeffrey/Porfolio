@@ -111,3 +111,24 @@
     transition: none;
   }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes bp-dash {
+    to {
+      stroke-dashoffset: -24;
+    }
+  }
+
+  .bp-edge-animated {
+    stroke-dasharray: 4 8;
+    animation: bp-dash 1.2s linear infinite;
+  }
+
+  .bp-edge-burst {
+    animation-duration: 0.6s;
+  }
+
+  .bp-edge-rare {
+    animation-duration: 3s;
+  }
+}

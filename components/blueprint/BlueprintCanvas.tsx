@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePerformanceTier } from "@/hooks/use-performance-tier";
 import { connectedClosure } from "@/lib/blueprint/closure";
 import { canvasSize, edgePath, nodeRect } from "@/lib/blueprint/layout";
-import type { BlueprintGraph } from "@/lib/blueprint/types";
+import type { BlueprintGraph, PulseKind } from "@/lib/blueprint/types";
 import NodeGlyph from "./NodeGlyph";
 import NodeInspector from "./NodeInspector";
 
@@ -11,8 +12,16 @@ interface BlueprintCanvasProps {
   graph: BlueprintGraph;
 }
 
+const PULSE_CLASS: Record<PulseKind, string> = {
+  steady: "",
+  burst: "bp-edge-burst",
+  rare: "bp-edge-rare",
+};
+
 export default function BlueprintCanvas({ graph }: BlueprintCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const tier = usePerformanceTier();
+  const animationsEnabled = tier !== "low";
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -53,6 +62,11 @@ export default function BlueprintCanvas({ graph }: BlueprintCanvasProps) {
                 stroke="var(--stroke-glass)"
                 strokeWidth={1.5}
                 fill="none"
+                className={
+                  animationsEnabled
+                    ? `bp-edge-animated ${PULSE_CLASS[edge.pulse]}`.trim()
+                    : undefined
+                }
               />
               <text
                 x={midX}
