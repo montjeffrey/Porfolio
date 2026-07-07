@@ -3,16 +3,41 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Mail, FolderOpen } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useVoice } from "@/lib/alignment/use-voice";
 import { ScrollScene, ParallaxLayer } from "@/lib/parallax/scroll-scene";
+import { track } from "@/lib/telemetry";
 
 export default function BottomCTA() {
   const ctaHeadline = useVoice("cta.bottom");
+  const arrivalRef = useRef<HTMLDivElement>(null);
+  const hasFiredRef = useRef(false);
+
+  useEffect(() => {
+    const node = arrivalRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (hasFiredRef.current) return;
+        if (entries[0]?.isIntersecting) {
+          hasFiredRef.current = true;
+          track("visualizer", "complete");
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <ScrollScene className="py-20 px-6 bg-bg-elevated">
       <ParallaxLayer depth="lift" className="max-w-4xl mx-auto text-center">
         <motion.div
+          ref={arrivalRef}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
