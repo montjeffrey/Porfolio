@@ -30,3 +30,15 @@ CREATE TABLE messages (
 4. Add your credentials to `.env.local`
 5. Restart your development server
 
+## Server-only variables
+
+These are read only by server-side code (route handlers) and must never be
+given a `NEXT_PUBLIC_` prefix, which would expose them to the browser bundle.
+
+```
+# Server-only: used by lib/supabase/server.ts, never expose to the client
+SUPABASE_URL=
+# Server-only: service-role key, never expose to the client
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
