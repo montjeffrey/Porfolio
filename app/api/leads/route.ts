@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { leadSchema } from "@/lib/leads/schema";
 import { scoreLead } from "@/lib/leads/score";
 import { getServiceClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/leads/rate-limit";
 
 export async function POST(req: Request) {
+  const key = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
+  if (!checkRateLimit(key)) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
