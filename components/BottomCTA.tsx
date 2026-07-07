@@ -4,13 +4,14 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Mail, FolderOpen } from "lucide-react";
 import { useVoice } from "@/lib/alignment/use-voice";
+import { ScrollScene, ParallaxLayer } from "@/lib/parallax/scroll-scene";
 
 export default function BottomCTA() {
   const ctaHeadline = useVoice("cta.bottom");
 
   return (
-    <section className="py-20 px-6 bg-bg-elevated">
-      <div className="max-w-4xl mx-auto text-center">
+    <ScrollScene className="py-20 px-6 bg-bg-elevated">
+      <ParallaxLayer depth="lift" className="max-w-4xl mx-auto text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -18,6 +19,12 @@ export default function BottomCTA() {
           transition={{ duration: 0.8 }}
           className="space-y-8"
         >
+          <p
+            className="font-mono text-sm tracking-widest uppercase"
+            style={{ color: "var(--accent-primary)" }}
+          >
+            You just experienced the demo.
+          </p>
           <h2 className="text-4xl md:text-5xl font-serif text-secondary mb-6">
             {ctaHeadline}
           </h2>
@@ -43,8 +50,8 @@ export default function BottomCTA() {
             </Link>
           </div>
         </motion.div>
-      </div>
-    </section>
+      </ParallaxLayer>
+    </ScrollScene>
   );
 }
 
