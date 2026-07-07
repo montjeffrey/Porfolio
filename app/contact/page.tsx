@@ -32,19 +32,30 @@ export default function ContactPage() {
     setIsSubmitting(true);
     setSubmitStatus(null);
 
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
-    // For now, we are just simulating success since the backend is not connected.
-    setSubmitStatus("success");
-    setFormData({
-      name: "",
-      email: "",
-      company: "",
-      projectType: "",
-      message: "",
-      preferredContact: "Email",
-    });
+      if (res.status === 201) {
+        setSubmitStatus("success");
+        setFormData({
+          name: "",
+          email: "",
+          company: "",
+          projectType: "",
+          message: "",
+          preferredContact: "Email",
+        });
+      } else {
+        setSubmitStatus("error");
+      }
+    } catch {
+      setSubmitStatus("error");
+    }
+
     setIsSubmitting(false);
     setTimeout(() => setSubmitStatus(null), 5000);
   };
