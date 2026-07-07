@@ -18,7 +18,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-alignment="ember" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{document.documentElement.dataset.alignment=localStorage.getItem("mj.alignment")||"ember"}catch(e){document.documentElement.dataset.alignment="ember"}`,
+          }}
+        />
+      </head>
       <body className={inter.className}>
         <ErrorBoundary>
           <Navbar />
