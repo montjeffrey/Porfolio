@@ -28,12 +28,17 @@ export default function NodeGlyph({ node, selected, dimmed, onSelect }: NodeGlyp
     }
   };
 
+  const handleClick = (e: React.MouseEvent<SVGGElement>) => {
+    e.stopPropagation();
+    onSelect(node.id);
+  };
+
   return (
     <g
       role="button"
       tabIndex={0}
       aria-label={node.label}
-      onClick={() => onSelect(node.id)}
+      onClick={handleClick}
       onKeyDown={handleKeyDown}
       opacity={dimmed ? 0.25 : 1}
       style={{ cursor: "pointer" }}
