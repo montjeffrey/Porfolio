@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useState, FormEvent } from "react";
 import { Mail, Phone, Linkedin, MapPin, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { useRoiStore } from "@/lib/roi/store";
 
 
 const projectTypes = [
@@ -33,10 +34,28 @@ export default function ContactPage() {
     setSubmitStatus(null);
 
     try {
+      let roiSnapshot: unknown = null;
+      const { snapshotArmed, inputs, disarmSnapshot } = useRoiStore.getState();
+      if (snapshotArmed) {
+        try {
+          const roiRes = await fetch("/api/roi/report", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ inputs }),
+          });
+          if (roiRes.ok) {
+            roiSnapshot = await roiRes.json();
+          }
+        } catch {
+          // ignore ROI snapshot failures; submit the lead without it
+        }
+        disarmSnapshot();
+      }
+
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, roiSnapshot }),
       });
 
       if (res.status === 201) {

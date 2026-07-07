@@ -1,10 +1,20 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useRoiStore } from "@/lib/roi/store";
 import RoiSliderRow from "./RoiSliderRow";
 import RoiOutputPanel from "./RoiOutputPanel";
 import ShowTheMath from "./ShowTheMath";
 
 export default function RoiCalculator() {
+  const router = useRouter();
+  const armSnapshot = useRoiStore((state) => state.armSnapshot);
+
+  const handleSendAnalysis = () => {
+    armSnapshot();
+    router.push("/contact");
+  };
+
   return (
     <section id="roi" className="relative py-20 px-6 bg-bg-dark">
       <div className="relative z-10 max-w-7xl mx-auto">
@@ -61,6 +71,13 @@ export default function RoiCalculator() {
           <div className="md:col-span-4 bg-[var(--surface-1)] rounded-2xl p-6">
             <RoiOutputPanel />
             <ShowTheMath />
+            <button
+              type="button"
+              onClick={handleSendAnalysis}
+              className="w-full mt-8 px-6 py-3 bg-primary hover:bg-primary/90 text-bg-dark rounded-lg font-semibold transition-all duration-300 hover:scale-105"
+            >
+              Send me this analysis
+            </button>
           </div>
         </div>
       </div>
