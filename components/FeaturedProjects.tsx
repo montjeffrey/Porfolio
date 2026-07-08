@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { SpotlightBackground } from "@/components/ui/spotlight-background";
+import { ScrollScene } from "@/lib/parallax/scroll-scene";
+import { ParallaxDotField } from "@/components/ui/parallax-dot-field";
 
 const featuredProjects = [
   {
@@ -22,12 +24,10 @@ const featuredProjects = [
   },
 ];
 
-import { DotBackground } from "@/components/ui/dot-background";
-
 export default function FeaturedProjects() {
   return (
-    <section className="relative py-20 px-6 bg-bg-elevated overflow-hidden">
-      <DotBackground />
+    <ScrollScene className="py-20 px-6 bg-bg-elevated overflow-hidden">
+      <ParallaxDotField />
       <div className="relative z-10 max-w-7xl mx-auto">
         <motion.h2
           initial={{ opacity: 0, y: -80 }}
@@ -129,7 +129,7 @@ export default function FeaturedProjects() {
           </Link>
         </motion.div>
       </div>
-    </section>
+    </ScrollScene>
   );
 }
 

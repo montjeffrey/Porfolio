@@ -9,10 +9,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "#E77D22", // Burnt Orange
-        secondary: "#F0EDE4", // Soft Cream
-        "bg-dark": "#0D0D0D",
-        "bg-elevated": "#1A1A1A",
+        primary: "var(--accent-primary)",
+        secondary: "var(--text-primary)",
+        "bg-dark": "var(--surface-0)",
+        "bg-elevated": "var(--surface-1)",
       },
       fontFamily: {
         serif: ["Georgia", "serif"],

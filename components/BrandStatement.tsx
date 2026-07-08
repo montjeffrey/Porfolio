@@ -1,37 +1,68 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowRight, Target } from "lucide-react";
+import { motion } from "framer-motion";
 import { EvervaultBackground } from "@/components/ui/evervault-background";
+import { ScrollScene, ParallaxLayer, ProgressReveal } from "@/lib/parallax/scroll-scene";
+import { useParallaxEnabled } from "@/lib/parallax/use-parallax-enabled";
+
+const STATEMENT_LINES: { text: string; start: number; end: number }[] = [
+  { text: "Most sites describe the work.", start: 0.10, end: 0.25 },
+  { text: "This one is the work.", start: 0.25, end: 0.40 },
+  { text: "Every plane you just scrolled through", start: 0.40, end: 0.55 },
+  { text: "is running the same discipline", start: 0.55, end: 0.70 },
+  { text: "I bring to your systems.", start: 0.70, end: 0.85 },
+];
 
 export default function BrandStatement() {
-  return (
-    <section className="relative py-20 px-6 overflow-hidden min-h-[600px]">
-      {/* Evervault background effect - covers entire section */}
-      <EvervaultBackground className="rounded-none" radius={450} />
-      
-      {/* Content wrapper with glassmorphism */}
-      <div className="relative z-10 max-w-4xl mx-auto text-center">
-        <div
-          className="space-y-8 backdrop-blur-xl bg-bg-elevated/50 rounded-3xl p-8 md:p-12 border border-primary/20 shadow-lg shadow-primary/10"
+  const mode = useParallaxEnabled();
+
+  if (mode !== "full") {
+    return (
+      <section className="relative h-auto min-h-[60vh] py-20 px-6 overflow-hidden flex items-center justify-center">
+        <div className="absolute -inset-[15%] -z-10">
+          <EvervaultBackground className="rounded-none" radius={450} />
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.8 }}
+          className="relative z-10 max-w-4xl mx-auto text-center space-y-4"
         >
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <Target className="w-8 h-8 text-primary" />
-            <h2 className="text-4xl md:text-5xl font-serif text-secondary">
-              Engineering Solutions for Real-World Impact
-            </h2>
-          </div>
+          {STATEMENT_LINES.map((line) => (
+            <p
+              key={line.text}
+              className="text-4xl md:text-5xl font-serif"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {line.text}
+            </p>
+          ))}
+        </motion.div>
+      </section>
+    );
+  }
 
-          <p className="text-xl md:text-2xl text-secondary/80 leading-relaxed">
-            My journey from Electrical Engineering to Operations Management to Software Development isn't just a career path—it's my competitive advantage. I understand the technical constraints engineers face, the operational challenges managers navigate, and the customer needs that drive business decisions.
-          </p>
+  return (
+    <ScrollScene className="h-[200vh]">
+      <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden px-6">
+        <ParallaxLayer depth="far" className="absolute -inset-[15%]">
+          <EvervaultBackground className="rounded-none" radius={450} />
+        </ParallaxLayer>
 
-          <p className="text-lg text-secondary/70 leading-relaxed">
-            Today, I leverage this multifaceted experience to build secure, scalable, and business-focused technical solutions that don't just work—they deliver measurable results.
-          </p>
+        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-4">
+          {STATEMENT_LINES.map((line) => (
+            <ProgressReveal key={line.text} start={line.start} end={line.end} yFrom={16}>
+              <p
+                className="text-4xl md:text-5xl font-serif"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {line.text}
+              </p>
+            </ProgressReveal>
+          ))}
         </div>
       </div>
-    </section>
+    </ScrollScene>
   );
 }
-

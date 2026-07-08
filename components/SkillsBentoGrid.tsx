@@ -2,6 +2,7 @@
 
 import { Cloud, Shield, Code, BarChart3 } from "lucide-react";
 import { EvervaultBackground } from "@/components/ui/evervault-background";
+import { ScrollScene, ParallaxLayer, ProgressReveal } from "@/lib/parallax/scroll-scene";
 
 const skills = [
   {
@@ -79,36 +80,43 @@ const SkillCard = ({
 
 export default function SkillsBentoGrid() {
   return (
-    <section className="relative py-20 px-6 bg-bg-dark overflow-hidden min-h-[800px] group/section">
-      {/* Evervault background effect - covers entire section */}
-      <EvervaultBackground className="rounded-none" radius={450} />
+    <section id="act-2" className="relative py-20 px-6 bg-bg-dark overflow-hidden min-h-[800px] group/section">
+      <ScrollScene>
+        {/* Evervault background effect - covers entire section, drifting at mid depth */}
+        <ParallaxLayer depth="mid" className="absolute -inset-[15%]">
+          <EvervaultBackground className="rounded-none" radius={450} />
+        </ParallaxLayer>
 
-      {/* Top Gradient Blend */}
-      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-bg-dark to-transparent z-10 pointer-events-none" />
+        {/* Top Gradient Blend */}
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-bg-dark to-transparent z-10 pointer-events-none" />
 
-      {/* Content wrapper - allows mouse events to pass through to background */}
-      <div className="relative z-10 max-w-7xl mx-auto">
-        <div className="flex justify-center mb-16">
-          <h2
-            className="text-4xl md:text-5xl font-serif text-secondary text-center relative z-20 
-              backdrop-blur-xl bg-bg-elevated/60 rounded-2xl py-4 px-8
-              border border-primary/30 shadow-lg shadow-primary/10
-              hover:border-primary/60 hover:bg-bg-elevated/40 hover:backdrop-blur-2xl
-              transition-all duration-300"
-          >
-            Skills Snapshot
-          </h2>
+        {/* Content wrapper - allows mouse events to pass through to background */}
+        <div className="relative z-10 max-w-7xl mx-auto">
+          <div className="flex justify-center mb-16">
+            <h2
+              className="text-4xl md:text-5xl font-serif text-secondary text-center relative z-20
+                backdrop-blur-xl bg-bg-elevated/60 rounded-2xl py-4 px-8
+                border border-primary/30 shadow-lg shadow-primary/10
+                hover:border-primary/60 hover:bg-bg-elevated/40 hover:backdrop-blur-2xl
+                transition-all duration-300"
+            >
+              Skills Snapshot
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-20">
+            {skills.map((skill, index) => {
+              const Icon = skill.icon;
+              const start = 0.15 + index * 0.06;
+              return (
+                <ProgressReveal key={skill.title} start={start} end={start + 0.25}>
+                  <SkillCard skill={skill} index={index} Icon={Icon} />
+                </ProgressReveal>
+              );
+            })}
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-20">
-          {skills.map((skill, index) => {
-            const Icon = skill.icon;
-            return (
-              <SkillCard key={skill.title} skill={skill} index={index} Icon={Icon} />
-            );
-          })}
-        </div>
-      </div>
+      </ScrollScene>
     </section>
   );
 }

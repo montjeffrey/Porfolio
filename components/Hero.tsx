@@ -8,10 +8,14 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { ResumeModal } from '@/components/ui/resume-modal';
 import { MobileScrollIndicator } from '@/components/ui/mobile-scroll-indicator';
 import { usePerformanceTier } from '@/hooks/use-performance-tier';
+import { useVoice } from '@/lib/alignment/use-voice';
+import { HERO_RECEDE, SPLASH_REVEAL_MS } from '@/lib/parallax/constants';
+import { useParallaxEnabled } from '@/lib/parallax/use-parallax-enabled';
+import { ScrollCue } from '@/components/ui/scroll-cue';
 import { MobileBeam } from './hero/MobileBeam';
 
 interface BeamBackgroundProps {
@@ -318,6 +322,15 @@ export default function Hero() {
   const [contentVisible, setContentVisible] = useState(false);
 
   const tier = usePerformanceTier(); // Use our new hook
+  const heroHeadline = useVoice('hero.headline');
+  const heroSub = useVoice('hero.sub');
+
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const parallaxMode = useParallaxEnabled();
+  const bgScale = useTransform(scrollYProgress, [0, 1], HERO_RECEDE.scale);
+  const bgOpacity = useTransform(scrollYProgress, [0, 1], HERO_RECEDE.opacity);
+  const contentY = useTransform(scrollYProgress, [0, 1], HERO_RECEDE.contentY);
 
   // Only desktop ('high') gets the heavy BeamBackground (UnrealBloom post-processing +
   // per-frame CPU matrix loop). ALL mobile tiers — including flagship phones — use the
@@ -329,7 +342,7 @@ export default function Hero() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setContentVisible(true);
-    }, 5000); // Extended delay for smoother animation loading and immersive splash
+    }, SPLASH_REVEAL_MS); // Reveal content after the splash beat, then let the scroll cue take over
     return () => clearTimeout(timer);
   }, []);
 
@@ -362,16 +375,28 @@ export default function Hero() {
   }, [displayText, isDeleting, textIndex]);
 
   return (
-    <div className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden pb-20 sm:pb-10">
+    <div ref={heroRef} className="relative w-full min-h-[100dvh] h-auto bg-bg-dark overflow-hidden pb-20 sm:pb-10">
       {/* Background Layer */}
-      {showHeavyBeam ? (
-        <MemoizedBeamBackground isMobile={false} tier="high" />
-      ) : (
-        <MobileBeam performanceTier={tier as 'flagship' | 'medium' | 'low'} />
-      )}
+      <motion.div
+        className="absolute inset-0"
+        style={{
+          scale: parallaxMode === 'full' ? bgScale : 1,
+          opacity: parallaxMode === 'full' ? bgOpacity : 1,
+          willChange: 'transform',
+        }}
+      >
+        {showHeavyBeam ? (
+          <MemoizedBeamBackground isMobile={false} tier="high" />
+        ) : (
+          <MobileBeam performanceTier={tier as 'flagship' | 'medium' | 'low'} />
+        )}
+      </motion.div>
 
       {/* Content Layer - Immersive Splash Screen Effect */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100dvh-10rem)] px-8 sm:px-6 text-center">
+      <motion.div
+        style={{ y: parallaxMode === 'full' ? contentY : 0 }}
+        className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100dvh-10rem)] px-8 sm:px-6 text-center"
+      >
         <div className="max-w-5xl mx-auto space-y-8 sm:space-y-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -380,10 +405,10 @@ export default function Hero() {
             className="space-y-8 sm:space-y-6"
           >
             <h1 className="text-[clamp(2rem,5vw,6rem)] font-serif text-secondary leading-tight px-4 sm:px-2">
-              Solutions Engineer: Where Operations Meet Innovation
+              {heroHeadline}
             </h1>
             <p className="text-[clamp(1rem,2vw,1.875rem)] text-secondary/80 font-light leading-relaxed max-w-4xl mx-auto px-4">
-              Bridging the gap between business operations and technical implementation through full-stack development, cloud infrastructure, and data-driven solutions.
+              {heroSub}
             </p>
             <div className="flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-4 text-[clamp(2.5rem,4vw,3.5rem)] font-serif mt-8 sm:mt-12 min-h-[4rem]">
               <span className="text-secondary">Specializing in</span>
@@ -417,11 +442,13 @@ export default function Hero() {
             </button>
           </motion.div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="block sm:hidden">
         <MobileScrollIndicator />
       </div>
+
+      <ScrollCue />
 
       <ResumeModal
         isOpen={isResumeModalOpen}

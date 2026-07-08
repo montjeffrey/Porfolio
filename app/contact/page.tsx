@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useState, FormEvent } from "react";
 import { Mail, Phone, Linkedin, MapPin, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { useRoiStore } from "@/lib/roi/store";
 
 
 const projectTypes = [
@@ -32,19 +33,48 @@ export default function ContactPage() {
     setIsSubmitting(true);
     setSubmitStatus(null);
 
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      let roiSnapshot: unknown = null;
+      const { snapshotArmed, inputs, disarmSnapshot } = useRoiStore.getState();
+      if (snapshotArmed) {
+        try {
+          const roiRes = await fetch("/api/roi/report", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ inputs }),
+          });
+          if (roiRes.ok) {
+            roiSnapshot = await roiRes.json();
+          }
+        } catch {
+          // ignore ROI snapshot failures; submit the lead without it
+        }
+        disarmSnapshot();
+      }
 
-    // For now, we are just simulating success since the backend is not connected.
-    setSubmitStatus("success");
-    setFormData({
-      name: "",
-      email: "",
-      company: "",
-      projectType: "",
-      message: "",
-      preferredContact: "Email",
-    });
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...formData, roiSnapshot }),
+      });
+
+      if (res.status === 201) {
+        setSubmitStatus("success");
+        setFormData({
+          name: "",
+          email: "",
+          company: "",
+          projectType: "",
+          message: "",
+          preferredContact: "Email",
+        });
+      } else {
+        setSubmitStatus("error");
+      }
+    } catch {
+      setSubmitStatus("error");
+    }
+
     setIsSubmitting(false);
     setTimeout(() => setSubmitStatus(null), 5000);
   };

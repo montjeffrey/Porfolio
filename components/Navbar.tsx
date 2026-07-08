@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import AlignmentToggle from "@/components/AlignmentToggle";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -40,28 +41,33 @@ export default function Navbar() {
             Jeffrey Montoya
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex space-x-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-secondary hover:text-primary transition-colors duration-200 font-medium"
-                aria-label={`Navigate to ${link.label} page`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+          {/* Right-side control cluster */}
+          <div className="flex items-center gap-4">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex space-x-8">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-secondary hover:text-primary transition-colors duration-200 font-medium"
+                  aria-label={`Navigate to ${link.label} page`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-secondary hover:text-primary transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+            <AlignmentToggle />
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="md:hidden text-secondary hover:text-primary transition-colors"
+              aria-label="Toggle menu"
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
       </div>
 

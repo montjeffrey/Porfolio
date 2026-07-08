@@ -32,31 +32,23 @@ npm install
 ```
 
 3. Set up environment variables
-```bash
-cp .env.example .env.local
-```
 
-Edit `.env.local` and add your Supabase credentials:
+Create a `.env.local` file in the root directory. See `ENV_TEMPLATE.md` for
+the full list; the two required server-only variables are:
 ```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
+These are read only by server-side route handlers (`lib/supabase/server.ts`)
+and must never be given a `NEXT_PUBLIC_` prefix.
 
 4. Set up Supabase
 
-Create a `messages` table in your Supabase database:
-```sql
-CREATE TABLE messages (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  company TEXT,
-  project_type TEXT,
-  message TEXT NOT NULL,
-  preferred_contact TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
+Run the migration in `supabase/migrations/0001_leads_and_telemetry.sql`
+against your Supabase project (via the SQL editor or the Supabase CLI). It
+creates the `leads.messages` and `telemetry.component_events` tables with
+row-level security enabled and no policies — all access goes through the
+service-role key in server route handlers only.
 
 5. Run the development server
 ```bash
@@ -70,24 +62,38 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 ├── app/                    # Next.js App Router pages
 │   ├── about/             # About page
-│   ├── contact/           # Contact page with Supabase form
+│   ├── contact/           # Contact page wired to /api/leads
 │   ├── projects/          # Projects listing and case studies
 │   ├── resume/            # Resume Hub page
+│   ├── api/               # Route handlers
+│   │   ├── leads/         # POST /api/leads — validated, rate-limited, scored
+│   │   ├── roi/report/    # POST /api/roi/report — server-recomputed ROI snapshot
+│   │   └── telemetry/     # POST /api/telemetry — component usage events
 │   ├── layout.tsx         # Root layout with navbar and footer
 │   ├── page.tsx           # Home page
-│   └── globals.css        # Global styles
+│   └── globals.css        # Global styles, alignment token blocks
 ├── components/            # React components
-│   ├── Navbar.tsx         # Glassmorphism navigation
+│   ├── Navbar.tsx         # Glassmorphism navigation (mounts AlignmentToggle)
 │   ├── Footer.tsx         # Site footer
 │   ├── Hero.tsx           # Hero section with typing effect and beam background
 │   ├── SkillsBentoGrid.tsx # Skills showcase in Bento grid layout
 │   ├── FeaturedProjects.tsx # Featured projects section
 │   ├── BrandStatement.tsx # Brand statement section
 │   ├── BottomCTA.tsx      # Bottom call-to-action
-│   └── ProjectCard.tsx    # Project card with tech stack marquee
-├── lib/                   # Utility functions
-│   ├── supabase.ts        # Supabase client configuration
+│   ├── ProjectCard.tsx    # Project card with tech stack marquee
+│   ├── AlignmentToggle.tsx # Segmented control for the site alignment theme
+│   ├── roi/               # ROI Impact Calculator (sliders, output panel, math disclosure)
+│   └── blueprint/          # System Blueprint Visualizer (canvas, node glyphs, inspector)
+├── lib/                   # Application logic and utilities
+│   ├── alignment/         # Alignment tokens, voice copy, and Zustand store
+│   ├── roi/               # ROI model, schema, types, and Zustand store
+│   ├── blueprint/         # Blueprint graph data, layout, validation, closure helpers
+│   ├── leads/             # Lead zod schema, scoring, and rate limiting
+│   ├── supabase/          # Server-only Supabase service client
+│   ├── telemetry.ts       # Client-safe telemetry beacon helper
 │   └── utils.ts           # Utility functions
+├── supabase/
+│   └── migrations/        # SQL migrations (leads + telemetry schemas, RLS)
 └── public/                # Static assets
 ```
 
@@ -116,6 +122,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - Framer Motion for page transitions and component animations
 - Three.js for beam background effect
 - CSS animations for typing effect and marquee scrolling
+
+### Modules
+
+- **Alignment Toggle:** A global site-wide theme switcher (`components/AlignmentToggle.tsx`, mounted in the navbar) that swaps between three token sets — Ember, Meridian, and Atelier — each pairing a distinct color palette with a distinct copy "voice" (operator, boardroom, studio). Selection is persisted to `localStorage`, applied pre-paint via a bootstrap script in `app/layout.tsx` to avoid a flash of the wrong theme, and driven by the Zustand store in `lib/alignment/`.
+- **ROI Impact Calculator:** A home-page section (`components/roi/RoiCalculator.tsx`) where visitors move sliders describing their operation — technician count, admin time, error/rework rates, loaded hourly cost — and see projected annual savings, hours reclaimed, and payback period update live, backed by a pure model in `lib/roi/model.ts`. A "Show the math" disclosure prints the formulas with live values, and visitors can send the current snapshot along with a contact form submission via `POST /api/roi/report`.
+- **System Blueprint Visualizer:** An interactive SVG system diagram (`components/blueprint/BlueprintCanvas.tsx`) showing how a field-service operation's data flows between mobile techs, the ingest API, the CRM core, a routing engine, and an admin dashboard. Selecting a node highlights its connected "blast radius" and opens an inspector panel with details and metrics; animated pulses along edges are gated by device performance tier and respect reduced-motion preferences.
 
 ## 📝 Pages Overview
 
@@ -175,14 +187,16 @@ Each project has a dedicated case study page with:
 ### Supabase Setup
 
 1. Create a new Supabase project
-2. Create the `messages` table (see SQL above)
-3. Add your Supabase URL and anon key to `.env.local`
-4. Configure Row Level Security (RLS) if needed
+2. Run `supabase/migrations/0001_leads_and_telemetry.sql` to create the
+   `leads.messages` and `telemetry.component_events` tables (RLS is enabled
+   with no policies — default-deny; all access is via the service-role key)
+3. Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` (see
+   `ENV_TEMPLATE.md`)
 
 ### Customization
 
-- **Colors:** Edit `tailwind.config.ts` to change color scheme
-- **Content:** Update `context.md` for content changes
+- **Colors:** Edit `tailwind.config.ts` or the token values in `lib/alignment/alignments.json` to change color scheme
+- **Content:** Update the relevant page or component directly for content changes
 - **Components:** Modify components in `/components` directory
 
 ## 📄 License

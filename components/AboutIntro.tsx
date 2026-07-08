@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import Image from "next/image";
 import { useRef } from "react";
 import { SpotlightBackground } from "@/components/ui/spotlight-background";
+import { ScrollScene, ParallaxLayer } from "@/lib/parallax/scroll-scene";
 
 export default function AboutIntro() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -17,12 +18,15 @@ export default function AboutIntro() {
 
   return (
     <section ref={sectionRef} className="relative py-20 px-6 bg-bg-dark overflow-hidden z-10 w-full">
-      {/* Background Effects */}
-      <SpotlightBackground />
-      {/* Top gradient for transition from Hero */}
-      <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-bg-dark to-transparent z-10 pointer-events-none" />
+      <ScrollScene>
+        {/* Background Effects */}
+        <ParallaxLayer depth="far" className="absolute -inset-[15%] -z-10">
+          <SpotlightBackground />
+        </ParallaxLayer>
+        {/* Top gradient for transition from Hero */}
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-bg-dark to-transparent z-10 pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto relative z-20">
+        <div className="max-w-7xl mx-auto relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           {/* Text Content - Left Side */}
           <motion.div
@@ -117,6 +121,7 @@ export default function AboutIntro() {
           </motion.div>
         </div>
       </div>
+      </ScrollScene>
     </section>
   );
 }
